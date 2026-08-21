@@ -1,0 +1,21 @@
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+
+# JavaScript dependencies and build artifacts
+node_modules/
+dist/
+coverage/
+
+# Python environments, caches, and bytecode
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Operating-system and diagnostic files
+.DS_Store
+*.log
