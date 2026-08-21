@@ -32,6 +32,7 @@ export default function ProviderStatusBanner({ providers, isOpen, onClose }) {
           {providers?.map((p) => {
             const isActive = p.status === 'active' || p.status === 'idle';
             const isCredentialsRequired = p.status === 'credentials_required';
+            const status = p.status || 'unknown';
 
             return (
               <div key={p.provider_id} className="p-4 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2">
@@ -45,7 +46,7 @@ export default function ProviderStatusBanner({ providers, isOpen, onClose }) {
                     isCredentialsRequired ? 'bg-amber-100 text-amber-900' :
                     'bg-slate-200 text-slate-700'
                   }`}>
-                    {p.status.replace('_', ' ')}
+                    {status.replace('_', ' ')}
                   </span>
                 </div>
 

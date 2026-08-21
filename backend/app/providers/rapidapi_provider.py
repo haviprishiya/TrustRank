@@ -5,6 +5,7 @@ import httpx
 from app.core.config import settings
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
+from app.services.normalization_service import NormalizationService
 
 class RapidApiAmazonProvider(BaseProductProvider):
     """
@@ -60,7 +61,9 @@ class RapidApiAmazonProvider(BaseProductProvider):
                     for item in prod_data[:limit]:
                         asin = item.get("asin", "")
                         title = item.get("product_title", "")
-                        product_url = item.get("product_url", f"https://www.amazon.in/dp/{asin}")
+                        product_url = item.get("product_url") or (f"https://www.amazon.in/dp/{asin}" if asin else None)
+                        if not asin or not title or not NormalizationService.is_direct_product_url(product_url, "Amazon India"):
+                            continue
                         image_url = item.get("product_photo", "") or item.get("product_main_image_url", "")
                         
                         price_str = item.get("product_price", "")
@@ -84,6 +87,7 @@ class RapidApiAmazonProvider(BaseProductProvider):
                             
                         norm_prod = NormalizedProduct(
                             id=f"amzn_rapid_{asin}",
+                            source_product_id=asin,
                             title=title,
                             brand=brand,
                             category=category,
@@ -94,14 +98,15 @@ class RapidApiAmazonProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability="In Stock",
+                            availability=item.get("availability") or "Unknown",
                             product_url=product_url,
                             marketplace="Amazon India",
                             provider=self.provider_id,
-                            seller="Amazon India / RapidAPI Feed",
+                            seller=None,
                             source="RapidAPI Real-Time Amazon India Data",
                             specifications={"ASIN": asin, "Brand": brand},
                             features=[f"Amazon India Live Listing • ASIN: {asin}"],
+                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace="Amazon India",
@@ -111,10 +116,10 @@ class RapidApiAmazonProvider(BaseProductProvider):
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=True,
+                                    in_stock=None,
                                     rating=rating,
                                     review_count=review_count,
-                                    seller_name="Amazon India Verified"
+                                    seller_name=None
                                 )
                             ]
                         )
@@ -185,7 +190,10 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                     
                     for idx, item in enumerate(prod_data[:limit]):
                         title = item.get("title", "") or item.get("name", "")
-                        product_url = item.get("url", f"https://www.flipkart.com/search?q={query}")
+                        product_id = item.get("product_id") or item.get("productId") or item.get("id")
+                        product_url = item.get("url") or item.get("product_url")
+                        if not product_id or not title or not NormalizationService.is_direct_product_url(product_url, "Flipkart"):
+                            continue
                         image_url = item.get("image", "") or item.get("thumbnail", "")
                         
                         price_str = str(item.get("price", ""))
@@ -208,7 +216,8 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                             brand = title.split()[0] if title else "Generic"
                             
                         norm_prod = NormalizedProduct(
-                            id=f"fk_rapid_{idx}_{int(current_price) if current_price else 'item'}",
+                            id=f"fk_rapid_{product_id}",
+                            source_product_id=str(product_id),
                             title=title,
                             brand=brand,
                             category=category,
@@ -219,14 +228,15 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability="In Stock",
+                            availability=item.get("availability") or "Unknown",
                             product_url=product_url,
                             marketplace="Flipkart",
                             provider=self.provider_id,
-                            seller="Flipkart Assured / RapidAPI Feed",
+                            seller=None,
                             source="RapidAPI Real-Time Flipkart Data",
                             specifications={"Brand": brand},
                             features=[f"Flipkart Live Listing • Brand: {brand}"],
+                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace="Flipkart",
@@ -236,10 +246,10 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=True,
+                                    in_stock=None,
                                     rating=rating,
                                     review_count=review_count,
-                                    seller_name="Flipkart Assured"
+                                    seller_name=None
                                 )
                             ]
                         )

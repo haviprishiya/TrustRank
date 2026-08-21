@@ -4,6 +4,7 @@ import httpx
 from app.core.config import settings
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
+from app.services.normalization_service import NormalizationService
 
 class FlipkartAffiliateProvider(BaseProductProvider):
     """
@@ -59,7 +60,9 @@ class FlipkartAffiliateProvider(BaseProductProvider):
                         product_id = base_info.get("productId", "")
                         title = base_info.get("title", "")
                         brand = base_info.get("productBrand", "Generic")
-                        product_url = base_info.get("productUrl", f"https://www.flipkart.com/item/p/{product_id}")
+                        product_url = base_info.get("productUrl")
+                        if not product_id or not title or not NormalizationService.is_direct_product_url(product_url, "Flipkart"):
+                            continue
                         
                         # Images
                         image_dict = base_info.get("imageUrls", {})
@@ -77,12 +80,13 @@ class FlipkartAffiliateProvider(BaseProductProvider):
                         # Rating
                         rating = float(base_info.get("productRating")) if base_info.get("productRating") else None
                         review_count = int(base_info.get("productReviewCount")) if base_info.get("productReviewCount") else None
-                        in_stock = base_info.get("inStock", True)
+                        in_stock = base_info.get("inStock")
                         
                         features_list = base_info.get("keySpecs", [])
                         
                         norm_prod = NormalizedProduct(
                             id=f"fk_{product_id}",
+                            source_product_id=product_id,
                             title=title,
                             brand=brand,
                             category=category,
@@ -97,10 +101,11 @@ class FlipkartAffiliateProvider(BaseProductProvider):
                             product_url=product_url,
                             marketplace="Flipkart",
                             provider=self.provider_id,
-                            seller="Flipkart Assured",
+                            seller=None,
                             source="Flipkart Official Affiliate API",
                             specifications={"FSN": product_id, "Brand": brand},
                             features=features_list,
+                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace="Flipkart",
@@ -113,7 +118,7 @@ class FlipkartAffiliateProvider(BaseProductProvider):
                                     in_stock=in_stock,
                                     rating=rating,
                                     review_count=review_count,
-                                    seller_name="Flipkart Assured"
+                                    seller_name=None
                                 )
                             ]
                         )

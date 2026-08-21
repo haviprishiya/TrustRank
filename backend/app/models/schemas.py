@@ -43,12 +43,12 @@ class UserRequirementAnswers(BaseModel):
 class MarketplaceOffer(BaseModel):
     marketplace: str  # "Amazon India", "Flipkart", "Official Store"
     provider: str
-    product_url: str
+    product_url: Optional[str] = None
     current_price: Optional[float] = None
     original_price: Optional[float] = None
     discount_percent: Optional[float] = None
     currency: str = "INR"
-    in_stock: bool = True
+    in_stock: Optional[bool] = None
     rating: Optional[float] = None
     review_count: Optional[int] = None
     seller_name: Optional[str] = None
@@ -69,8 +69,10 @@ class ReviewAnalysisResult(BaseModel):
 
 class NormalizedProduct(BaseModel):
     id: str
+    source_product_id: Optional[str] = None
     title: str
     brand: str
+    description: Optional[str] = None
     category: str
     image_url: Optional[str] = ""
     current_price: Optional[float] = None
@@ -79,8 +81,8 @@ class NormalizedProduct(BaseModel):
     currency: str = "INR"
     rating: Optional[float] = None
     review_count: Optional[int] = None
-    availability: str = "In Stock"
-    product_url: str
+    availability: str = "Unknown"
+    product_url: Optional[str] = None
     marketplace: str
     provider: str
     seller: Optional[str] = None
@@ -165,6 +167,8 @@ class ProviderStatusInfo(BaseModel):
     env_keys_required: List[str] = []
     latency_ms: Optional[float] = None
     items_fetched: int = 0
+    enabled: bool = True
+    diagnostic_code: str = "not_run"
 
 class RecommendationPipelineResponse(BaseModel):
     query: str

@@ -33,11 +33,12 @@ class Settings(BaseSettings):
     ]
     
     # Live Marketplace Providers Credentials (configured securely via environment)
-    # 1. Amazon Official PA-API 5.0 (India: webservices.amazon.in)
-    AMAZON_PAAPI_ACCESS_KEY: str = os.getenv("AMAZON_PAAPI_ACCESS_KEY", "")
-    AMAZON_PAAPI_SECRET_KEY: str = os.getenv("AMAZON_PAAPI_SECRET_KEY", "")
-    AMAZON_PAAPI_TAG: str = os.getenv("AMAZON_PAAPI_TAG", "")
-    AMAZON_PAAPI_REGION: str = os.getenv("AMAZON_PAAPI_REGION", "in")
+    # 1. Amazon Creators API (OAuth 2.0; India marketplace)
+    AMAZON_CREATORS_CREDENTIAL_ID: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_ID", "")
+    AMAZON_CREATORS_CREDENTIAL_SECRET: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_SECRET", "")
+    AMAZON_CREATORS_CREDENTIAL_VERSION: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_VERSION", "")
+    AMAZON_CREATORS_PARTNER_TAG: str = os.getenv("AMAZON_CREATORS_PARTNER_TAG", "")
+    AMAZON_CREATORS_TOKEN_ENDPOINT: str = os.getenv("AMAZON_CREATORS_TOKEN_ENDPOINT", "https://api.amazon.co.uk/auth/o2/token")
     
     # 2. Flipkart Affiliate API
     FLIPKART_AFFILIATE_ID: str = os.getenv("FLIPKART_AFFILIATE_ID", "")
@@ -54,9 +55,6 @@ class Settings(BaseSettings):
     # 5. Open Product Data Providers (Open Beauty Facts / Open Food Facts)
     ENABLE_OPEN_DATA_PROVIDER: bool = True
     
-    # 6. Live Search Provider
-    ENABLE_LIVE_SEARCH_PROVIDER: bool = True
-
     @field_validator("DEBUG", mode="before")
     @classmethod
     def parse_debug_value(cls, value):

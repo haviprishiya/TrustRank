@@ -5,6 +5,7 @@ import httpx
 from app.core.config import settings
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
+from app.services.normalization_service import NormalizationService
 
 class SerpApiShoppingProvider(BaseProductProvider):
     """
@@ -77,8 +78,10 @@ class SerpApiShoppingProvider(BaseProductProvider):
                         
                         # Map source to marketplace
                         marketplace = "Amazon India" if "amazon" in source.lower() else ("Flipkart" if "flipkart" in source.lower() else source)
+                        if not NormalizationService.is_direct_product_url(product_url, marketplace):
+                            continue
                         
-                        brand = title.split()[0] if title else "Generic"
+                        brand = item.get("brand") or "Unknown Brand"
                         
                         features_list = [f"Listed by {source}"]
                         if current_price:
@@ -86,6 +89,7 @@ class SerpApiShoppingProvider(BaseProductProvider):
                         
                         norm_prod = NormalizedProduct(
                             id=f"serp_{item.get('position', 0)}_{int(current_price) if current_price else 'item'}",
+                            source_product_id=str(item.get("product_id") or item.get("position") or ""),
                             title=title,
                             brand=brand,
                             category=category,
@@ -96,7 +100,7 @@ class SerpApiShoppingProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability="In Stock",
+                            availability=item.get("availability") or "Unknown",
                             product_url=product_url,
                             marketplace=marketplace,
                             provider=self.provider_id,
@@ -104,6 +108,7 @@ class SerpApiShoppingProvider(BaseProductProvider):
                             source=f"SerpApi Google Shopping India ({source})",
                             specifications={"Source": source, "Brand": brand},
                             features=features_list,
+                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace=marketplace,
@@ -113,7 +118,7 @@ class SerpApiShoppingProvider(BaseProductProvider):
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=True,
+                                    in_stock=None,
                                     rating=rating,
                                     review_count=review_count,
                                     seller_name=source

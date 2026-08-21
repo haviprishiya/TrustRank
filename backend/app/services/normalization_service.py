@@ -1,8 +1,37 @@
 import re
+from urllib.parse import urlparse
 from typing import Dict, List, Optional
 from app.models.schemas import NormalizedProduct
 
 class NormalizationService:
+    @staticmethod
+    def unwrap_product_url(url: Optional[str]) -> Optional[str]:
+        if not url or not isinstance(url, str):
+            return None
+
+        url = url.strip()
+        if not url.startswith(("http://", "https://")):
+            return None
+        return url
+
+    @classmethod
+    def is_direct_product_url(cls, url: Optional[str], marketplace: str) -> bool:
+        clean_url = cls.unwrap_product_url(url)
+        if not clean_url:
+            return False
+
+        parsed = urlparse(clean_url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower().rstrip("/")
+        query = parsed.query.lower()
+        marketplace_name = marketplace.lower()
+
+        if "amazon" in marketplace_name or host.endswith("amazon.in"):
+            return host.endswith("amazon.in") and bool(re.search(r"/(?:dp|gp/product|gp/aw/d)/[a-z0-9]+", path))
+        if "flipkart" in marketplace_name or host.endswith("flipkart.com"):
+            return host.endswith("flipkart.com") and ("/p/" in path or "/product/" in path) and "search" not in query
+        return "search" not in path and "search" not in query
+
     @staticmethod
     def extract_specs(title: str, features: List[str], category: str) -> Dict[str, str]:
         text = f"{title} {' '.join(features)}".lower()
@@ -168,7 +197,7 @@ class NormalizationService:
                 product.specifications[k] = v
 
         # Calculate discount if missing
-        if product.original_price and product.current_price > 0 and product.original_price > product.current_price:
+        if product.original_price and product.current_price and product.current_price > 0 and product.original_price > product.current_price:
             if not product.discount_percent:
                 product.discount_percent = round(((product.original_price - product.current_price) / product.original_price) * 100, 1)
 

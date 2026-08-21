@@ -92,9 +92,9 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
               </span>
               <span className="text-slate-500 font-medium">
                 {product.rating && product.rating > 0 ? (
-                  `⭐ ${product.rating.toFixed(1)} (${product.review_count ? product.review_count.toLocaleString('en-IN') : '—'} verified ratings)`
+                  `⭐ ${product.rating.toFixed(1)} (${product.review_count ? product.review_count.toLocaleString('en-IN') : '—'} reviews)`
                 ) : (
-                  <span className="text-slate-400 italic">No ratings published by source</span>
+                  <span className="text-slate-400 italic">Rating not available</span>
                 )}
               </span>
             </div>
@@ -169,11 +169,11 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
             </div>
             <div className="bg-white p-2 rounded-lg border border-slate-100 text-center">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rating (20%)</span>
-              <span className="text-sm font-bold text-blue-600">{rating_score || (product.rating ? Math.round((product.rating/5)*100) : 70)}/100</span>
+              <span className="text-sm font-bold text-blue-600">{rating_score !== null && rating_score !== undefined ? `${rating_score}/100` : 'Not available'}</span>
             </div>
             <div className="bg-white p-2 rounded-lg border border-slate-100 text-center">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Availability (20%)</span>
-              <span className="text-sm font-bold text-purple-600">{availability_score || 90}/100</span>
+              <span className="text-sm font-bold text-purple-600">{availability_score !== null && availability_score !== undefined ? `${availability_score}/100` : 'Not available'}</span>
             </div>
           </div>
         </div>

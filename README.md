@@ -41,9 +41,9 @@ TrustRank adheres strictly to **zero-fabrication data integrity**:
 - **Truthful Provider Reporting**: When live credentials or network connectivity are not yet configured, TrustRank transparently reports provider operational status (`credentials_required`, `active`, `unavailable`) and details exact `.env` configuration keys without inventing fake data.
 
 ### Supported Live Providers:
-1. **Amazon India Official PA-API 5.0 (`webservices.amazon.in`)**:
-   - AWS Signature Version 4 HMAC-SHA256 authenticated requests.
-   - Retrieves live ASINs, titles, Prime pricing in INR, high-resolution product photography, and verified star ratings.
+1. **Amazon India Creators API (`creatorsapi.amazon`)**:
+   - OAuth 2.0 authenticated requests using Amazon Creators API credentials.
+   - Retrieves live ASINs, titles, product photography, offers, and customer ratings when supplied by Amazon.
 2. **Flipkart Official Affiliate Search API (`affiliate-api.flipkart.net`)**:
    - Secure token-authenticated search endpoint.
    - Retrieves live Flipkart FSNs, selling prices, MRP, discounts, stock availability, and rating counts.
@@ -54,8 +54,6 @@ TrustRank adheres strictly to **zero-fabrication data integrity**:
    - Multi-merchant price aggregation across Amazon.in, Flipkart, Croma, and Reliance Digital.
 5. **Open Beauty Facts / Open Food Facts Live Database**:
    - Live open product data for cosmetics, skincare formulations, ingredients lists, and verified barcodes.
-6. **Live Multi-Marketplace Search Engine**:
-   - Public structured search index integration with polite rate limiting and caching.
 
 ---
 
@@ -73,12 +71,11 @@ trustrank/
 │   │   │   └── schemas.py            # Pydantic domain models & response contracts
 │   │   ├── providers/
 │   │   │   ├── base.py               # Abstract BaseProductProvider interface
-│   │   │   ├── amazon_provider.py    # Official Amazon PA-API 5.0 India client
+│   │   │   ├── amazon_provider.py    # Official Amazon Creators API India client
 │   │   │   ├── flipkart_provider.py  # Official Flipkart Affiliate API client
 │   │   │   ├── rapidapi_provider.py  # RapidAPI Amazon & Flipkart clients
 │   │   │   ├── serpapi_provider.py   # SerpApi Google Shopping India client
 │   │   │   ├── open_data_provider.py # Open Beauty Facts registry client
-│   │   │   ├── live_search_provider.py # Public search index live crawler
 │   │   │   └── registry.py           # Provider Registry & Parallel Query Runner
 │   │   ├── services/
 │   │   │   ├── intent_service.py     # Token parser, category classifier & budget extractor
@@ -148,7 +145,7 @@ python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install Python dependencies
-pip install fastapi uvicorn httpx pydantic beautifulsoup4 lxml requests
+pip install fastapi uvicorn httpx pydantic requests
 ```
 
 ### 2. Configure Environment Variables
@@ -156,7 +153,7 @@ Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Fill in your provider credentials (e.g. `RAPIDAPI_KEY`, `SERPAPI_KEY`, or `AMAZON_PAAPI_ACCESS_KEY`).
+Fill in your provider credentials (for example `AMAZON_CREATORS_CREDENTIAL_ID`, `AMAZON_CREATORS_CREDENTIAL_SECRET`, `AMAZON_CREATORS_CREDENTIAL_VERSION`, and `AMAZON_CREATORS_PARTNER_TAG`).
 
 ### 3. Run TrustRank Server
 ```bash

@@ -42,7 +42,16 @@ export async function generateRecommendations(query, category, answers) {
   if (!res.ok) {
     throw new Error(await getApiError(res, 'Failed to generate recommendations'));
   }
-  return res.json();
+  const result = await res.json();
+  if (
+    !result ||
+    !Array.isArray(result.recommendations) ||
+    !result.recommendations.every((recommendation) => recommendation?.product)
+  ) {
+    throw new Error('TrustRank returned an invalid recommendation response. Please try again.');
+  }
+
+  return result;
 }
 
 export async function fetchProvidersStatus() {

@@ -3,6 +3,7 @@ from typing import List
 import httpx
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
+from app.core.config import settings
 
 class OpenBeautyFactsProvider(BaseProductProvider):
     """
@@ -18,7 +19,10 @@ class OpenBeautyFactsProvider(BaseProductProvider):
         self.endpoint = "https://world.openbeautyfacts.org/cgi/search.pl"
 
     def is_configured(self) -> bool:
-        return True  # Public open API, no credentials required
+        return settings.ENABLE_OPEN_DATA_PROVIDER
+
+    def is_enabled(self) -> bool:
+        return settings.ENABLE_OPEN_DATA_PROVIDER
 
     def get_required_env_keys(self) -> List[str]:
         return []
@@ -57,10 +61,10 @@ class OpenBeautyFactsProvider(BaseProductProvider):
                     for item in products_raw:
                         code = item.get("code", "")
                         name = item.get("product_name", "") or item.get("product_name_en", "")
-                        if not name or len(name) < 3:
+                        if not code or not name or len(name) < 3:
                             continue
                             
-                        brand = item.get("brands", "Minimalist").split(",")[0].strip() or "Verified Brand"
+                        brand = item.get("brands", "").split(",")[0].strip() or "Unknown Brand"
                         image_url = item.get("image_front_url", "") or item.get("image_url", "")
                         
                         # Real ingredients list if present
@@ -84,7 +88,7 @@ class OpenBeautyFactsProvider(BaseProductProvider):
                             currency="INR",
                             rating=None,
                             review_count=None,
-                            availability="Verified in Registry",
+                            availability="Unknown",
                             product_url=f"https://world.openbeautyfacts.org/product/{code}",
                             marketplace="Open Beauty Facts",
                             provider=self.provider_id,
@@ -101,7 +105,7 @@ class OpenBeautyFactsProvider(BaseProductProvider):
                                     original_price=None,
                                     discount_percent=None,
                                     currency="INR",
-                                    in_stock=True,
+                                    in_stock=None,
                                     rating=None,
                                     review_count=None,
                                     seller_name="Verified Formulation Registry"

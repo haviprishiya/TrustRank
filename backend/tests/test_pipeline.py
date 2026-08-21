@@ -1,5 +1,4 @@
 import unittest
-import pytest
 from app.models.schemas import UserRequirementAnswers
 from app.services.pipeline import RecommendationPipeline
 from app.providers.registry import provider_registry
@@ -25,9 +24,9 @@ class TestPipelineIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(res.provider_statuses), 0)
         
         # Verify provider statuses are truthful
-        paapi_status = next((p for p in res.provider_statuses if p.provider_id == "amazon_paapi_india"), None)
-        self.assertIsNotNone(paapi_status)
-        self.assertIn("AMAZON_PAAPI_ACCESS_KEY", paapi_status.env_keys_required)
+        creators_status = next((p for p in res.provider_statuses if p.provider_id == "amazon_creators_india"), None)
+        self.assertIsNotNone(creators_status)
+        self.assertIn("AMAZON_CREATORS_CREDENTIAL_ID", creators_status.env_keys_required)
 
 if __name__ == '__main__':
     unittest.main()

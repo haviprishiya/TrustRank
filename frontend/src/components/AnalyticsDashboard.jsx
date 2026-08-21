@@ -93,9 +93,9 @@ export default function AnalyticsDashboard({ analytics }) {
                 <tr key={b.brand} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-900">{b.brand}</td>
                   <td className="p-3">{b.product_count} products</td>
-                  <td className="p-3 font-bold">₹{b.average_price.toLocaleString('en-IN')}</td>
-                  <td className="p-3">⭐ {b.average_rating.toFixed(1)}</td>
-                  <td className="p-3">{b.total_reviews.toLocaleString('en-IN')}</td>
+                  <td className="p-3 font-bold">{b.average_price !== null && b.average_price !== undefined ? `₹${b.average_price.toLocaleString('en-IN')}` : '—'}</td>
+                  <td className="p-3">{b.average_rating !== null && b.average_rating !== undefined ? `⭐ ${b.average_rating.toFixed(1)}` : '—'}</td>
+                  <td className="p-3">{b.total_reviews?.toLocaleString('en-IN') || 0}</td>
                   <td className="p-3">
                     <div className="flex items-center space-x-2">
                       <span className="font-bold text-emerald-600 w-10">{b.positive_percentage}%</span>
@@ -128,8 +128,8 @@ export default function AnalyticsDashboard({ analytics }) {
                   <span className="text-slate-500 font-semibold">{m.product_count} Offers</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-slate-600">
-                  <span>Avg Price: <strong className="text-slate-900">₹{m.average_price.toLocaleString('en-IN')}</strong></span>
-                  <span>Avg Rating: <strong className="text-slate-900">⭐ {m.average_rating.toFixed(1)}</strong></span>
+                  <span>Avg Price: <strong className="text-slate-900">{m.average_price !== null && m.average_price !== undefined ? `₹${m.average_price.toLocaleString('en-IN')}` : '—'}</strong></span>
+                  <span>Avg Rating: <strong className="text-slate-900">{m.average_rating !== null && m.average_rating !== undefined ? `⭐ ${m.average_rating.toFixed(1)}` : '—'}</strong></span>
                 </div>
               </div>
             ))}

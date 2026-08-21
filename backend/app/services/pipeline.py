@@ -1,4 +1,5 @@
 import time
+import logging
 from typing import List, Dict, Any, Optional
 from app.models.schemas import (
     SearchIntent,
@@ -13,6 +14,8 @@ from app.services.matching_service import MatchingService
 from app.services.scoring_service import ScoringService
 from app.services.analytics_service import AnalyticsService
 from app.providers.registry import provider_registry
+
+logger = logging.getLogger(__name__)
 
 class RecommendationPipeline:
     @classmethod
@@ -37,10 +40,12 @@ class RecommendationPipeline:
         )
         
         total_found = len(raw_products)
+        logger.info("Pipeline raw products query=%r count=%d", user_request.query, total_found)
         
         # 3. Deduplication & Multi-Marketplace Offer Matching
         deduplicated = MatchingService.deduplicate_and_group_offers(raw_products)
         dedup_count = len(deduplicated)
+        logger.info("Pipeline normalized/deduplicated query=%r count=%d", user_request.query, dedup_count)
         
         # 4. Requirement Scoring & Evaluation
         scored_recommendations: List[ScoredRecommendation] = []
@@ -54,9 +59,11 @@ class RecommendationPipeline:
             
         # 5. Ranking and Badging
         ranked = ScoringService.rank_and_assign_badges(scored_recommendations)
+        logger.info("Pipeline scored query=%r count=%d", user_request.query, len(scored_recommendations))
         
         # 6. Top 5 Selection & Badged Entities
         top_5 = ranked[:5]
+        logger.info("Pipeline final recommendations query=%r count=%d top5=%d", user_request.query, len(ranked), len(top_5))
         best_for_you = next((r for r in ranked if "Best for You" in r.category_badges), top_5[0] if top_5 else None)
         best_value = next((r for r in ranked if "Best Value" in r.category_badges), top_5[1] if len(top_5) > 1 else None)
         best_reviewed = next((r for r in ranked if "Best Reviewed" in r.category_badges), top_5[2] if len(top_5) > 2 else None)

@@ -94,6 +94,13 @@ export default function App() {
     setStep('home');
   };
 
+  const providerDiagnostics = pipelineData?.provider_statuses
+    ?.filter((provider) => provider.diagnostic_code !== 'skipped_for_category')
+    .filter((provider) => provider.diagnostic_code !== 'provider_disabled')
+    .filter((provider) => provider.diagnostic_code !== 'success')
+    .map((provider) => `${provider.name}: ${provider.message}`)
+    .join(' ');
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Navigation */}
@@ -300,7 +307,7 @@ export default function App() {
         {!isLoading && step === 'results' && (!pipelineData || pipelineData.recommendations.length === 0) && (
           <EmptyState
             title="No live products retrieved"
-            message="We were unable to retrieve live product listings matching this exact query from authorized providers. You can check provider credentials in the top bar or try another search."
+            message={providerDiagnostics || "We were unable to retrieve live product listings matching this exact query from authorized providers. Check provider status or try another search."}
             onReset={handleReset}
           />
         )}

@@ -234,8 +234,8 @@ class ScoringService:
             elif rating < 3.8:
                 negative_reasons.append(f"Average rating of {rating:.1f}★ suggests mixed customer feedback")
         else:
-            rating_score = 70.0
-            review_confidence_score = 40.0
+            rating_score = 0.0
+            review_confidence_score = 0.0
             scoring_explanations["rating"] = "No customer ratings published by source for this listing"
             neutral_observations.append(f"Rating data not provided by {product.marketplace}")
 
@@ -265,7 +265,7 @@ class ScoringService:
         scoring_explanations["price_value"] = f"Value rating: {vfm_label} ({vfm_score:.0f}/100)"
 
         # 6. Availability & Source Reliability Scores
-        availability_score = 100.0 if "in stock" in product.availability.lower() else (90.0 if "verified" in product.availability.lower() else 70.0)
+        availability_score = 100.0 if "in stock" in product.availability.lower() else (90.0 if "verified" in product.availability.lower() else 50.0)
         source_reliability_score = 95.0 if any(p in product.provider for p in ["amazon", "flipkart", "open_beauty"]) else 85.0
         scoring_explanations["availability"] = f"Availability: {product.availability} on {product.marketplace}"
         scoring_explanations["source_reliability"] = f"Source: {product.source or product.marketplace}"
