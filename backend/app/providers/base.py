@@ -9,8 +9,8 @@ class BaseProductProvider(ABC):
         self.marketplace = marketplace
         self._last_latency_ms: Optional[float] = None
         self._last_items_count: int = 0
-        self._last_status: str = "initialized"
-        self._last_message: str = "Initialized"
+        self._last_status: str = "ready"
+        self._last_message: str = "Ready"
 
     def is_enabled(self) -> bool:
         return True
@@ -38,7 +38,8 @@ class BaseProductProvider(ABC):
     def get_status(self) -> ProviderStatusInfo:
         configured = self.is_configured()
         enabled = self.is_enabled()
-        status = self._last_status if configured else "credentials_required"
+        is_opt = getattr(self, "is_optional", False)
+        status = self._last_status if configured else ("optional / unavailable" if is_opt else "credentials_required")
         if not enabled:
             status = "disabled"
             message = "Provider disabled by configuration."
@@ -73,5 +74,6 @@ class BaseProductProvider(ABC):
             latency_ms=self._last_latency_ms,
             items_fetched=self._last_items_count,
             enabled=enabled,
+            is_optional=is_opt,
             diagnostic_code=diagnostic_code
         )

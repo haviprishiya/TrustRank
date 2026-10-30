@@ -8,8 +8,21 @@ from app.models.schemas import (
     PriceBracketAnalytics,
     RatingBracketAnalytics
 )
+from app.services.review_service import ReviewService
 
 class AnalyticsService:
+    @staticmethod
+    def _rating(product: NormalizedProduct):
+        if product.review_analysis and product.review_analysis.combined_rating is not None:
+            return product.review_analysis.combined_rating
+        return product.rating
+
+    @staticmethod
+    def _review_count(product: NormalizedProduct) -> int:
+        if product.review_analysis:
+            return product.review_analysis.total_reviews_analyzed
+        return product.review_count or 0
+
     @staticmethod
     def generate_dashboard_data(products: List[NormalizedProduct]) -> AnalyticsDashboardData:
         if not products:
@@ -27,8 +40,8 @@ class AnalyticsService:
             )
 
         total_prods = len(products)
-        total_reviews = sum(p.review_count for p in products if p.review_count)
-        rated_prods = [p.rating for p in products if p.rating is not None and p.rating > 0]
+        total_reviews = sum(AnalyticsService._review_count(p) for p in products)
+        rated_prods = [AnalyticsService._rating(p) for p in products if AnalyticsService._rating(p) is not None and AnalyticsService._rating(p) > 0]
         avg_rating = round(sum(rated_prods) / len(rated_prods), 2) if rated_prods else 0.0
 
         # Review Sentiment aggregation
@@ -48,9 +61,9 @@ class AnalyticsService:
         brand_analytics: List[BrandAnalytics] = []
         for brand, b_prods in brand_map.items():
             b_count = len(b_prods)
-            b_ratings = [p.rating for p in b_prods if p.rating is not None and p.rating > 0]
+            b_ratings = [AnalyticsService._rating(p) for p in b_prods if AnalyticsService._rating(p) is not None and AnalyticsService._rating(p) > 0]
             b_avg_rating = round(sum(b_ratings) / len(b_ratings), 1) if b_ratings else None
-            b_tot_reviews = sum(p.review_count for p in b_prods if p.review_count)
+            b_tot_reviews = sum(AnalyticsService._review_count(p) for p in b_prods)
             b_prices = [p.current_price for p in b_prods if p.current_price is not None and p.current_price > 0]
             b_avg_price = round(sum(b_prices) / len(b_prices), 0) if b_prices else None
             
@@ -69,13 +82,15 @@ class AnalyticsService:
 
         brand_analytics.sort(key=lambda b: b.product_count, reverse=True)
 
-        # Marketplace Analysis
+        # Marketplace Analysis (Strictly Amazon India and Flipkart)
         mkt_map = defaultdict(list)
         for p in products:
             for offer in p.offers:
-                mkt_map[offer.marketplace].append(offer)
+                mkt_norm = "Flipkart" if "flipkart" in (offer.marketplace or "").lower() else "Amazon India"
+                mkt_map[mkt_norm].append(offer)
             if not p.offers:
-                mkt_map[p.marketplace].append(p)
+                mkt_norm = "Flipkart" if "flipkart" in (p.marketplace or "").lower() else "Amazon India"
+                mkt_map[mkt_norm].append(p)
 
         marketplace_analytics: List[MarketplaceAnalytics] = []
         for mkt, items in mkt_map.items():

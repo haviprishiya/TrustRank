@@ -7,14 +7,36 @@ import ComparisonTable from './components/ComparisonTable';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ProductDetailsModal from './components/ProductDetailsModal';
 import ProviderStatusBanner from './components/ProviderStatusBanner';
+import AuthModal from './components/AuthModal';
 import LoadingState from './components/LoadingState';
 import EmptyState from './components/EmptyState';
 import ErrorState from './components/ErrorState';
-import { fetchIntent, fetchQuestions, generateRecommendations, fetchProvidersStatus } from './services/api';
+import ReviewAnalysisDashboard from './components/ReviewAnalysisDashboard';
+import CouponsOffersDashboard from './components/CouponsOffersDashboard';
+import UserProfileDashboard from './components/UserProfileDashboard';
+import PriceAlertModal from './components/PriceAlertModal';
+import { fetchIntent, fetchQuestions, generateRecommendations, fetchProvidersStatus, generateImage, analyzeImage, apiGetMe, apiLogout, recordResearchActivity } from './services/api';
 
 export default function App() {
   const [step, setStep] = useState('home'); // 'home' | 'wizard' | 'results'
-  const [activeView, setActiveView] = useState('recommendations'); // 'recommendations' | 'comparison' | 'analytics'
+  const [activeView, setActiveView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('guest_id')) {
+        try { localStorage.setItem('trustrank_guest_id', params.get('guest_id')); } catch (e) {}
+      }
+      if (params.get('view') === 'profile' || window.location.hash === '#profile') {
+        return 'profile';
+      }
+      if (params.get('view') === 'coupons' || window.location.hash === '#coupons') {
+        return 'coupons';
+      }
+      if (params.get('view') === 'review_analysis' || window.location.hash === '#review_analysis') {
+        return 'review_analysis';
+      }
+    }
+    return 'recommendations';
+  }); // 'recommendations' | 'comparison' | 'analytics' | 'review_analysis'
   const [query, setQuery] = useState('');
   const [intent, setIntent] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -22,17 +44,72 @@ export default function App() {
   const [pipelineData, setPipelineData] = useState(null);
   const [providers, setProviders] = useState([]);
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authToken, setAuthToken] = useState(localStorage.getItem('trustrank_auth_token') || null);
+  const [welcomeToast, setWelcomeToast] = useState(null);
   const [selectedProductModal, setSelectedProductModal] = useState(null);
+  const [alertProductModal, setAlertProductModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState(null);
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [generatedImage, setGeneratedImage] = useState(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageAnalysis, setImageAnalysis] = useState(null);
+
+  // Restore authenticated session
+  useEffect(() => {
+    if (authToken) {
+      apiGetMe(authToken)
+        .then((userData) => {
+          if (userData) {
+            setCurrentUser(userData);
+          } else {
+            localStorage.removeItem('trustrank_auth_token');
+            setAuthToken(null);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('trustrank_auth_token');
+          setAuthToken(null);
+        });
+    }
+  }, [authToken]);
 
   // Initial provider status fetch
   useEffect(() => {
     fetchProvidersStatus()
-      .then((data) => setProviders(data))
+      .then((data) => setProviders(data.providers || []))
       .catch((err) => console.error("Could not fetch provider status:", err));
   }, []);
+
+  const handleAuthSuccess = (authData) => {
+    if (authData?.token && authData?.user) {
+      localStorage.setItem('trustrank_auth_token', authData.token);
+      setAuthToken(authData.token);
+      setCurrentUser(authData.user);
+      setWelcomeToast({
+        title: authData.user.name ? `Welcome, ${authData.user.name}!` : `Welcome to TrustRank!`,
+        message: `A welcome email has been sent to ${authData.user.email}. Check your inbox for your personalized shopping guide.`
+      });
+      setTimeout(() => setWelcomeToast(null), 8000);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (authToken) {
+      await apiLogout(authToken);
+    }
+    localStorage.removeItem('trustrank_auth_token');
+    setAuthToken(null);
+    setCurrentUser(null);
+    setWelcomeToast({
+      title: 'Signed Out',
+      message: 'You have been safely signed out from your account.'
+    });
+    setTimeout(() => setWelcomeToast(null), 4000);
+  };
 
   // Handler: User searches on Homepage
   const handleSearch = async (searchQuery) => {
@@ -44,6 +121,12 @@ export default function App() {
 
       const detectedIntent = await fetchIntent(searchQuery);
       setIntent(detectedIntent);
+      recordResearchActivity(authToken, {
+        category: 'search',
+        title: `Searched for "${searchQuery}"`,
+        query: searchQuery,
+        metadata: { category: detectedIntent.detected_category }
+      });
 
       const dynamicQuestions = await fetchQuestions(searchQuery, detectedIntent.detected_category);
       setQuestions(dynamicQuestions);
@@ -51,6 +134,36 @@ export default function App() {
       setStep('wizard');
     } catch (err) {
       console.error(err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async (event) => {
+    event.preventDefault();
+    if (!imagePrompt.trim()) return;
+    try {
+      setError(null);
+      setIsLoading(true);
+      setLoadingMessage('Generating image...');
+      setGeneratedImage(await generateImage(imagePrompt.trim()));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAnalyzeImage = async (event) => {
+    event.preventDefault();
+    if (!imageUrl.trim()) return;
+    try {
+      setError(null);
+      setIsLoading(true);
+      setLoadingMessage('Analyzing image...');
+      setImageAnalysis(await analyzeImage(imageUrl.trim()));
+    } catch (err) {
       setError(err);
     } finally {
       setIsLoading(false);
@@ -67,6 +180,32 @@ export default function App() {
 
       const result = await generateRecommendations(query, intent?.detected_category, answers);
       setPipelineData(result);
+      if (result.recommendations && result.recommendations.length > 0) {
+        recordResearchActivity(authToken, {
+          category: 'recommendation',
+          title: `${result.recommendations.length} recommendations for "${query}"`,
+          query: query,
+          metadata: {
+            total_ranked: result.recommendations.length,
+            product: result.recommendations[0]?.product
+          }
+        });
+      }
+      if (result.top_5_comparison && result.top_5_comparison.length > 0) {
+        recordResearchActivity(authToken, {
+          category: 'comparison',
+          title: `Compared Top 5 products for "${query}"`,
+          query: query,
+          metadata: {
+            compared_products: result.top_5_comparison.map(p => ({
+              id: p.id,
+              title: p.title,
+              price: p.current_price ?? p.price,
+              marketplace: p.marketplace
+            }))
+          }
+        });
+      }
       if (result.provider_statuses) {
         setProviders(result.provider_statuses);
       }
@@ -99,10 +238,141 @@ export default function App() {
     .filter((provider) => provider.diagnostic_code !== 'provider_disabled')
     .filter((provider) => provider.diagnostic_code !== 'success')
     .map((provider) => `${provider.name}: ${provider.message}`)
-    .join(' ');
+  if (activeView === 'profile') {
+    return (
+      <>
+        <Navbar
+          onReset={handleReset}
+          onViewProviders={() => setIsProviderModalOpen(true)}
+          activeView="profile"
+          setActiveView={setActiveView}
+          providersCount={providers.length}
+          liveItemCount={pipelineData?.total_products_found || 0}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
+        />
+        <UserProfileDashboard
+          currentUser={currentUser}
+          authToken={authToken}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onNavigateHome={() => { setStep('home'); setActiveView('home'); }}
+          onNavigateRecommendations={() => { setStep('results'); setActiveView('recommendations'); }}
+          onNavigateComparison={() => { setStep('results'); setActiveView('comparison'); }}
+          onNavigateReviewAnalysis={(prod) => {
+            if (prod) setSelectedProductModal(prod);
+            setActiveView('review_analysis');
+          }}
+          onNavigateCoupons={() => setActiveView('coupons')}
+          onReopenSearch={(pastQuery) => {
+            handleSearch(pastQuery);
+          }}
+          onSelectProduct={(prod) => setSelectedProductModal(prod)}
+          onOpenPriceAlert={(prod) => setAlertProductModal(prod)}
+        />
+        {selectedProductModal && (
+          <ProductDetailsModal
+            product={selectedProductModal}
+            onClose={() => setSelectedProductModal(null)}
+            onOpenPriceAlert={(p) => setAlertProductModal(p)}
+          />
+        )}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
+        />
+        <ProviderStatusBanner
+          providers={providers}
+          isOpen={isProviderModalOpen}
+          onClose={() => setIsProviderModalOpen(false)}
+        />
+      </>
+    );
+  }
+
+  if (activeView === 'coupons') {
+    return (
+      <>
+        <CouponsOffersDashboard
+          initialQuery={query}
+          recommendations={pipelineData?.recommendations || []}
+          onNavigateHome={() => { setStep('home'); setActiveView('home'); }}
+          onNavigateRecommendations={() => { setStep('results'); setActiveView('recommendations'); }}
+        />
+        {selectedProductModal && (
+          <ProductDetailsModal
+            product={selectedProductModal}
+            onClose={() => setSelectedProductModal(null)}
+            onOpenPriceAlert={(p) => setAlertProductModal(p)}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (activeView === 'review_analysis') {
+    return (
+      <>
+        <ReviewAnalysisDashboard
+          product={selectedProductModal || pipelineData?.recommendations?.[0]?.product || null}
+          recommendations={pipelineData?.recommendations || []}
+          onSelectProduct={(p, rec) => setSelectedProductModal(rec ? { ...p, _recommendation: rec } : p)}
+          onNavigateHome={() => { setStep('home'); setActiveView('home'); }}
+          onNavigateSearch={() => { setStep('home'); setActiveView('home'); }}
+          onNavigateRecommendations={() => { setStep('results'); setActiveView('recommendations'); }}
+          onNavigateComparison={() => { setStep('results'); setActiveView('comparison'); }}
+          onNavigateProfile={() => setActiveView('profile')}
+          onNavigateSettings={() => setIsProviderModalOpen(true)}
+          currentUser={currentUser}
+          onSearch={handleSearch}
+        />
+        {selectedProductModal && (
+          <ProductDetailsModal
+            product={selectedProductModal}
+            onClose={() => setSelectedProductModal(null)}
+            onOpenPriceAlert={(p) => setAlertProductModal(p)}
+          />
+        )}
+        <ProviderStatusBanner
+          providers={providers}
+          isOpen={isProviderModalOpen}
+          onClose={() => setIsProviderModalOpen(false)}
+        />
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white relative">
+      {/* Welcome Email & Login Toast Notification */}
+      {welcomeToast && (
+        <div className="fixed top-20 right-4 sm:right-8 z-50 max-w-md w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-indigo-500/30 flex items-start space-x-3 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center flex-shrink-0 text-white shadow-md">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-bold text-white tracking-tight">{welcomeToast.title}</h4>
+            <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{welcomeToast.message}</p>
+          </div>
+          <button
+            onClick={() => setWelcomeToast(null)}
+            className="text-slate-400 hover:text-white transition p-1"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
       <Navbar
         onReset={handleReset}
@@ -111,6 +381,9 @@ export default function App() {
         setActiveView={setActiveView}
         providersCount={providers.length}
         liveItemCount={pipelineData?.total_products_found || 0}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -196,6 +469,27 @@ export default function App() {
                 </p>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto">
+              <section className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <h2 className="font-bold text-slate-900">Image Generation</h2>
+                <p className="text-xs text-slate-500 mt-1">Uses only a configured server-side provider.</p>
+                <form onSubmit={handleGenerateImage} className="mt-3 flex gap-2">
+                  <input value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Describe an image" />
+                  <button type="submit" className="rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white">Generate</button>
+                </form>
+                {generatedImage?.image_url && <img className="mt-3 max-h-56 rounded-lg" src={generatedImage.image_url} alt={generatedImage.prompt || imagePrompt} />}
+              </section>
+              <section className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <h2 className="font-bold text-slate-900">Image Analysis</h2>
+                <p className="text-xs text-slate-500 mt-1">Analyze a publicly accessible product-image URL.</p>
+                <form onSubmit={handleAnalyzeImage} className="mt-3 flex gap-2">
+                  <input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="https://…" />
+                  <button type="submit" className="rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white">Analyze</button>
+                </form>
+                {imageAnalysis && <pre className="mt-3 overflow-auto rounded bg-slate-50 p-2 text-xs">{JSON.stringify(imageAnalysis, null, 2)}</pre>}
+              </section>
+            </div>
           </div>
         )}
 
@@ -223,6 +517,11 @@ export default function App() {
                   <span className="text-xs text-slate-500">
                     Query: <strong>"{pipelineData.query}"</strong>
                   </span>
+                  {pipelineData.intent?.extracted_requirements?.length > 0 && (
+                    <span className="text-xs text-indigo-700 font-semibold">
+                      Requirement: {pipelineData.intent.extracted_requirements.join(' + ')}
+                    </span>
+                  )}
                   <span className="text-xs text-emerald-600 font-semibold">
                     • {pipelineData.recommendations.length} live recommendations
                   </span>
@@ -280,25 +579,65 @@ export default function App() {
               >
                 Analytical Dashboard
               </button>
+              <button
+                onClick={() => setActiveView('review_analysis')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeView === 'review_analysis'
+                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                Review Analysis
+              </button>
+              <button
+                onClick={() => setActiveView('coupons')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeView === 'coupons'
+                    ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/20'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                Coupons & Offers
+              </button>
+              <button
+                onClick={() => setActiveView('profile')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeView === 'profile'
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                Profile & History
+              </button>
             </div>
 
             {/* View Content */}
             {activeView === 'recommendations' && (
               <ProductGrid
                 recommendations={pipelineData.recommendations}
-                onSelectProduct={(p) => setSelectedProductModal(p)}
+                onSelectProduct={(p, rec) => setSelectedProductModal(rec ? { ...p, _recommendation: rec } : p)}
+                onOpenPriceAlert={(p) => setAlertProductModal(p)}
               />
             )}
 
             {activeView === 'comparison' && (
               <ComparisonTable
                 comparisonProducts={pipelineData.top_5_comparison}
-                onSelectProduct={(p) => setSelectedProductModal(p)}
+                onSelectProduct={(p, rec) => setSelectedProductModal(rec ? { ...p, _recommendation: rec } : p)}
               />
             )}
 
             {activeView === 'analytics' && (
-              <AnalyticsDashboard analytics={pipelineData.analytics} />
+              <AnalyticsDashboard
+                analytics={pipelineData.analytics}
+                recommendations={pipelineData.recommendations}
+                topComparison={pipelineData.top_5_comparison}
+                bestForYou={pipelineData.best_for_you}
+                bestValue={pipelineData.best_value}
+                bestReviewed={pipelineData.best_reviewed}
+                bestAlternative={pipelineData.best_alternative}
+                onSelectProduct={(p, rec) => setSelectedProductModal(rec ? { ...p, _recommendation: rec } : p)}
+              />
             )}
           </div>
         )}
@@ -326,6 +665,29 @@ export default function App() {
         providers={providers}
         isOpen={isProviderModalOpen}
         onClose={() => setIsProviderModalOpen(false)}
+      />
+
+      {/* Price Drop Alert Modal */}
+      {alertProductModal && (
+        <PriceAlertModal
+          product={alertProductModal}
+          isOpen={Boolean(alertProductModal)}
+          onClose={() => setAlertProductModal(null)}
+          onAlertCreated={(res) => {
+            setWelcomeToast({
+              title: '🔔 Price Alert Activated!',
+              message: `Tracking "${res.product_title.slice(0, 35)}..." for drops to ₹${res.target_price.toLocaleString('en-IN')}.`
+            });
+            setTimeout(() => setWelcomeToast(null), 5000);
+          }}
+        />
+      )}
+
+      {/* User Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
 
       {/* Footer */}

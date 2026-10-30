@@ -4,9 +4,9 @@ from app.models.schemas import SearchIntent
 
 CATEGORY_DEFINITIONS = {
     "laptop": {
-        "display_name": "Laptops & Notebooks",
+        "display_name": "Electronics & Computing",
         "keywords": ["laptop", "laptops", "notebook", "notebooks", "macbook", "macbooks", "chromebook", "ultrabook", "thinkpad"],
-        "negative_keywords": ["laptop bag", "laptop sleeve", "laptop stand", "laptop skin", "laptop cooler", "laptop charger"],
+        "negative_keywords": ["laptop bag", "laptop sleeve", "laptop stand", "laptop skin", "laptop cooler", "laptop charger", "computer table", "laptop table", "study table", "computer desk", "desk table", "mouse pad", "mouse", "keyboard", "keyboards", "gaming mouse", "gaming keyboard", "headset", "earphones", "backpack"],
         "default_budget": 60000,
         "brands": ["Apple", "Dell", "HP", "Lenovo", "ASUS", "Acer", "MSI", "Samsung", "LG", "Honor", "Xiaomi", "Infinix"]
     },
@@ -23,6 +23,27 @@ CATEGORY_DEFINITIONS = {
         "negative_keywords": [],
         "default_budget": 800,
         "brands": ["Minimalist", "Plum", "Cetaphil", "Neutrogena", "The Ordinary", "Dot & Key", "Mamaearth", "CeraVe", "Derma Co", "Bioderma", "L'Oreal", "Forest Essentials", "Simple", "Innisfree"]
+    },
+    "hair_care": {
+        "display_name": "Hair Care",
+        "keywords": ["shampoo", "shampoos", "conditioner", "conditioners", "hair care", "hair serum", "hair oil", "hair mask", "anti dandruff"],
+        "negative_keywords": [],
+        "default_budget": 800,
+        "brands": ["L'Oreal", "Dove", "Pantene", "Head & Shoulders", "Tresemme", "Mamaearth", "Minimalist", "WOW", "Sebamed", "Biotique"]
+    },
+    "makeup": {
+        "display_name": "Makeup",
+        "keywords": ["makeup", "lipstick", "foundation", "concealer", "mascara", "eyeliner", "blush", "primer", "highlighter"],
+        "negative_keywords": [],
+        "default_budget": 1500,
+        "brands": ["Maybelline", "Lakme", "MAC", "Nykaa", "Sugar", "NARS", "L'Oreal", "Colorbar"]
+    },
+    "furniture": {
+        "display_name": "Furniture & Home",
+        "keywords": ["furniture", "office chair", "desk chair", "ergonomic chair", "sofa", "table", "desk", "bed", "bookshelf"],
+        "negative_keywords": [],
+        "default_budget": 15000,
+        "brands": ["Ikea", "Wakefit", "Green Soul", "Nilkamal", "Godrej", "Durian"]
     },
     "headphones": {
         "display_name": "Headphones & Audio",
@@ -53,7 +74,7 @@ CATEGORY_DEFINITIONS = {
         "brands": ["LG", "Samsung", "Bosch", "Whirlpool", "IFB", "Godrej", "Panasonic", "Haier"]
     },
     "shoes": {
-        "display_name": "Shoes & Footwear",
+        "display_name": "Footwear & Running",
         "keywords": ["shoes", "shoe", "sneakers", "sneaker", "running shoes", "walking shoes", "training shoes", "boots", "loafers", "sports shoes"],
         "negative_keywords": ["shoe rack", "shoe box", "shoe polish", "shoe laces"],
         "default_budget": 3500,
@@ -79,6 +100,27 @@ CATEGORY_DEFINITIONS = {
         "negative_keywords": ["keyboard cover", "keycaps", "keyboard wrist rest", "piano keyboard", "musical keyboard"],
         "default_budget": 3000,
         "brands": ["Logitech", "Keychron", "Corsair", "Razer", "Redragon", "Royal Kludge", "HyperX", "Portronics", "HP", "Dell"]
+    },
+    "dress": {
+        "display_name": "Dresses & Apparel",
+        "keywords": ["dress", "dresses", "gown", "gowns", "frock", "frocks", "kurti", "kurtis", "saree", "sarees", "maxi dress", "midi dress", "mini dress", "one piece", "lehenga", "anarkali", "top", "tunic", "skirt"],
+        "negative_keywords": ["dress shoes", "dressing table", "dress up", "hair dressing", "shoe", "shoes"],
+        "default_budget": 2500,
+        "brands": ["Zara", "H&M", "Biba", "W for Woman", "FabIndia", "ONLY", "Vero Moda", "Mango", "Forever 21", "AND", "Aurelia", "Marks & Spencer", "Levi's", "Allen Solly"]
+    },
+    "refrigerator": {
+        "display_name": "Refrigerators & Cooling",
+        "keywords": ["refrigerator", "refrigerators", "fridge", "fridges", "single door fridge", "double door fridge", "side by side fridge", "deep freezer", "mini fridge"],
+        "negative_keywords": ["fridge cover", "fridge stand", "fridge magnet", "fridge bottle", "fridge storage", "refrigerator cover", "fridge mat"],
+        "default_budget": 28000,
+        "brands": ["Samsung", "LG", "Whirlpool", "Haier", "Godrej", "Bosch", "Panasonic", "Voltas", "Beko", "Liebherr"]
+    },
+    "kitchen_appliances": {
+        "display_name": "Kitchen Appliances",
+        "keywords": ["air fryer", "airfryer", "microwave", "microwave oven", "mixer grinder", "mixer", "grinder", "blender", "juicer", "induction cooktop", "induction", "coffee maker", "espresso machine", "toaster", "electric kettle", "kettle", "food processor", "sandwich maker", "kitchen appliance", "kitchen appliances"],
+        "negative_keywords": ["microwave cover", "air fryer liners", "air fryer paper", "kettle cleaner", "cookware set", "dinner set"],
+        "default_budget": 4500,
+        "brands": ["Philips", "Prestige", "Bajaj", "Morphy Richards", "Havells", "Pigeon", "Bosch", "Wonderchef", "Inalsa", "Kent", "Agaro", "Cuisinart", "Instant Pot", "IFB"]
     }
 }
 
@@ -186,6 +228,23 @@ class IntentService:
                     
         return features, use_case
 
+    @staticmethod
+    def extract_requirements(query: str) -> List[str]:
+        """Retain natural-language purpose clauses without a category synonym list."""
+        cleaned = re.sub(
+            r"\s+(?:under|below|less than|within|max|budget of|budget|around|up to|upto)\s+.*$",
+            "",
+            query.lower().strip(),
+        )
+        matches = re.findall(r"\b(?:for|with|suitable for|used for)\s+([^,;]+)", cleaned)
+        requirements: List[str] = []
+        for clause in matches:
+            for part in re.split(r"\s+(?:and|or)\s+", clause):
+                value = re.sub(r"\s+", " ", part).strip(" .")
+                if value and value not in requirements:
+                    requirements.append(value)
+        return requirements
+
     @classmethod
     def detect_intent(cls, raw_query: str) -> SearchIntent:
         cleaned_query = raw_query.strip()
@@ -235,6 +294,7 @@ class IntentService:
         budget = cls.extract_budget(cleaned_query)
         brands = cls.extract_brands(cleaned_query, detected_cat)
         features, use_case = cls.extract_features_and_use(cleaned_query)
+        requirements = cls.extract_requirements(cleaned_query)
         
         # Tokenize keywords for search provider queries
         # Remove stop words and budget phrases from query to form normalized_query
@@ -253,6 +313,7 @@ class IntentService:
             extracted_budget=budget,
             extracted_brands=brands,
             extracted_features=features,
+            extracted_requirements=requirements,
             target_audience_or_use=use_case,
             normalized_query=normalized_q,
             keywords=keywords

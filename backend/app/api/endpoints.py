@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query, Body
 from app.models.schemas import (
@@ -61,9 +62,17 @@ async def generate_recommendations(request: UserRequirementAnswers):
         logger.exception("Recommendation generation failed for query=%r", request.query)
         raise HTTPException(status_code=500, detail="Recommendation generation failed. Check backend server logs for details.")
 
-@router.get("/providers/status", response_model=List[ProviderStatusInfo])
+@router.get("/providers/status")
 async def get_providers_status():
-    return provider_registry.get_all_statuses()
+    configured = lambda name: bool(os.getenv(name, "").strip()) and not os.getenv(name, "").startswith("YOUR_")
+    marketplace = provider_registry.get_all_statuses()
+    return {
+        "brightdata": {"configured": configured("BRIGHTDATA_API_KEY"), "status": "ready" if configured("BRIGHTDATA_API_KEY") else "missing_api_key"},
+        "ai": {"configured": configured("OPENAI_API_KEY"), "status": "ready" if configured("OPENAI_API_KEY") else "missing_api_key"},
+        "image": {"configured": configured("OPENAI_API_KEY") or configured("IMAGE_PROVIDER_API_KEY"), "status": "ready" if configured("OPENAI_API_KEY") or configured("IMAGE_PROVIDER_API_KEY") else "missing_api_key"},
+        "search": {"configured": any(item.configured for item in marketplace), "status": "ready" if any(item.configured for item in marketplace) else "missing_api_key"},
+        "providers": [item.model_dump() for item in marketplace],
+    }
 
 @router.get("/health")
 async def health_check():

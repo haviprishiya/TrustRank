@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from app.models.schemas import MarketplaceOffer, NormalizedProduct
 from app.providers.amazon_provider import AmazonCreatorsAPIProvider
+from app.providers.brightdata_provider import BrightDataAmazonProvider
 from app.providers.base import BaseProductProvider
 from app.providers.registry import ProviderRegistry
 from app.services.matching_service import MatchingService
@@ -53,6 +54,37 @@ class FakeProvider(BaseProductProvider):
 
 
 class TestProviderPipeline(unittest.IsolatedAsyncioTestCase):
+    async def test_brightdata_search_products_are_normalized_for_the_pipeline(self):
+        provider = BrightDataAmazonProvider()
+        brightdata_record = {
+            "name": "Example Phone 128GB",
+            "asin": "B012345678",
+            "url": "https://www.amazon.in/dp/B012345678",
+            "image": "https://images.example/phone.jpg",
+            "final_price": "49,999.00",
+            "initial_price": "54,999.00",
+            "currency": "INR",
+            "rating": 4.5,
+            "num_ratings": "1,200",
+            "brand": "Example",
+            "availability": "In Stock",
+        }
+        with patch.object(provider, "is_configured", return_value=True), patch(
+            "app.providers.brightdata_provider.search_amazon", return_value=[brightdata_record]
+        ):
+            products = await provider.search("phone", "phone")
+
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products[0].title, "Example Phone 128GB")
+        self.assertEqual(products[0].image_url, "https://images.example/phone.jpg")
+        self.assertEqual(products[0].current_price, 49999.0)
+        self.assertEqual(products[0].original_price, 54999.0)
+        self.assertEqual(products[0].currency, "INR")
+        self.assertEqual(products[0].rating, 4.5)
+        self.assertEqual(products[0].review_count, 1200)
+        self.assertEqual(products[0].product_url, "https://www.amazon.in/dp/B012345678")
+        self.assertEqual(products[0].provider, "brightdata_amazon_search")
+
     async def test_creators_response_preserves_source_fields(self):
         provider = AmazonCreatorsAPIProvider()
         provider._get_access_token = AsyncMock(return_value="test-token")

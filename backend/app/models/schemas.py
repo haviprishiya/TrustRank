@@ -31,6 +31,7 @@ class SearchIntent(BaseModel):
     extracted_budget: Optional[float] = None
     extracted_brands: List[str] = []
     extracted_features: List[str] = []
+    extracted_requirements: List[str] = []
     target_audience_or_use: Optional[str] = None
     normalized_query: str
     keywords: List[str] = []
@@ -54,10 +55,45 @@ class MarketplaceOffer(BaseModel):
     seller_name: Optional[str] = None
     delivery_info: Optional[str] = None
 
+class MarketplaceComparisonOffer(BaseModel):
+    """A real Amazon or Flipkart offer prepared for the Top 5 comparison."""
+    marketplace: str
+    product_url: Optional[str] = None
+    current_price: Optional[float] = None
+    rating: Optional[float] = None
+    review_count: Optional[int] = None
+    availability: Optional[str] = None
+    seller_name: Optional[str] = None
+    has_better_price: bool = False
+    has_higher_rating: bool = False
+
+class CustomerReview(BaseModel):
+    marketplace: str = "Amazon India"
+    product_id: Optional[str] = None
+    product_url: Optional[str] = None
+    review_id: Optional[str] = None
+    reviewer_name: Optional[str] = None
+    rating: Optional[float] = None
+    review_text: str = ""
+    review_date: Optional[str] = None
+    verified_purchase: Optional[bool] = None
+    fetched_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    id: Optional[str] = None
+    title: Optional[str] = ""
+    source_url: Optional[str] = None
+
+class MarketplaceReviewSummary(BaseModel):
+    """Rating evidence returned by one marketplace for the matched product."""
+    marketplace: str
+    rating: Optional[float] = None
+    review_count: Optional[int] = None
+
 class ReviewAnalysisResult(BaseModel):
     has_detailed_reviews: bool = False
     source_note: str
     total_reviews_analyzed: int = 0
+    written_reviews_count: int = 0
+    written_reviews: List[CustomerReview] = []
     positive_percentage: float = 0.0
     neutral_percentage: float = 0.0
     negative_percentage: float = 0.0
@@ -66,6 +102,8 @@ class ReviewAnalysisResult(BaseModel):
     recurring_themes: List[str] = []
     rating_distribution: Dict[str, float] = {}
     summary: str = ""
+    combined_rating: Optional[float] = None
+    marketplace_breakdown: List[MarketplaceReviewSummary] = []
 
 class NormalizedProduct(BaseModel):
     id: str
@@ -75,6 +113,7 @@ class NormalizedProduct(BaseModel):
     description: Optional[str] = None
     category: str
     image_url: Optional[str] = ""
+    image_candidates: List[str] = []
     current_price: Optional[float] = None
     original_price: Optional[float] = None
     discount_percent: Optional[float] = None
@@ -116,6 +155,7 @@ class ScoredRecommendation(BaseModel):
     neutral_observations: List[str] = []
     best_for_you_explanation: str = ""
     category_badges: List[str] = []
+    marketplace_comparison: List[MarketplaceComparisonOffer] = []
 
 class BrandAnalytics(BaseModel):
     brand: str
@@ -168,6 +208,7 @@ class ProviderStatusInfo(BaseModel):
     latency_ms: Optional[float] = None
     items_fetched: int = 0
     enabled: bool = True
+    is_optional: bool = False
     diagnostic_code: str = "not_run"
 
 class RecommendationPipelineResponse(BaseModel):

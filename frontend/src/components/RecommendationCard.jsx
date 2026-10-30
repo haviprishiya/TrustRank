@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ImageOff, ExternalLink, ShieldCheck, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { Package, ImageOff, ExternalLink, ShieldCheck, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import MarketplaceOffer from './MarketplaceOffer';
+import { saveProduct } from '../services/api';
+import ProductOffersSection from './ProductOffersSection';
 
-export default function RecommendationCard({ recommendation, onSelectProduct, isFeatured = false }) {
-  const [imgError, setImgError] = useState(false);
-
+export default function RecommendationCard({ recommendation, onSelectProduct, isFeatured = false, onOpenPriceAlert }) {
   const {
     product,
     trustrank_score,
@@ -24,6 +24,42 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
     best_for_you_explanation,
     category_badges = []
   } = recommendation;
+
+  const candidates = React.useMemo(() => {
+    const list = [];
+    if (product?.image_url) list.push(product.image_url);
+    if (Array.isArray(product?.image_candidates)) {
+      product.image_candidates.forEach((u) => {
+        if (u && typeof u === 'string' && !list.includes(u)) list.push(u);
+      });
+    }
+    return list;
+  }, [product?.image_url, product?.image_candidates]);
+
+  const [imgIdx, setImgIdx] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSave = async (e) => {
+    e.stopPropagation();
+    try {
+      const token = localStorage.getItem('trustrank_auth_token');
+      await saveProduct(token, product);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch (err) {
+      console.warn('Could not save product:', err);
+    }
+  };
+
+  React.useEffect(() => {
+    setImgIdx(0);
+  }, [product?.id, product?.image_url, product?.image_candidates]);
+
+  const hasImage = candidates.length > 0 && imgIdx < candidates.length;
+  const currency = product.currency || 'INR';
+  const formatMoney = (value) => new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : undefined, {
+    style: 'currency', currency, maximumFractionDigits: 2,
+  }).format(value);
 
   return (
     <div className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
@@ -69,12 +105,14 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
         <div className="flex flex-col sm:flex-row gap-5 items-start">
           {/* Image */}
           <div className="w-full sm:w-44 h-44 bg-slate-50 rounded-xl border border-slate-100 p-2 flex items-center justify-center shrink-0 overflow-hidden relative">
-            {product.image_url && !imgError ? (
+            {hasImage ? (
               <img
-                src={product.image_url}
+                src={candidates[imgIdx]}
                 alt={product.title}
+                referrerPolicy="no-referrer"
+                loading="lazy"
                 className="max-h-full max-w-full object-contain hover:scale-105 transition duration-200"
-                onError={() => setImgError(true)}
+                onError={() => setImgIdx((prev) => prev + 1)}
               />
             ) : (
               <div className="text-slate-400 flex flex-col items-center justify-center p-3 text-center">
@@ -100,7 +138,7 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
             </div>
 
             <h3
-              onClick={() => onSelectProduct(product)}
+              onClick={() => onSelectProduct(product, recommendation)}
               className="text-base sm:text-lg font-bold text-slate-900 hover:text-indigo-600 cursor-pointer transition leading-snug"
             >
               {product.title}
@@ -110,14 +148,27 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
             <div className="flex flex-wrap items-baseline gap-3 pt-1">
               {product.current_price && product.current_price > 0 ? (
                 <>
+                  {/* Source-aware currency display. */}
+                  <span className="text-2xl font-black text-slate-900 tracking-tight">
+                    {formatMoney(product.current_price)}
+                  </span>
+                  {/* Legacy INR-only display retained below for compatibility. */}
+                  {/*
                   <span className="text-2xl font-black text-slate-900 tracking-tight">
                     ₹{product.current_price.toLocaleString('en-IN')}
                   </span>
+                  */}
                   {product.original_price && product.original_price > product.current_price && (
                     <>
                       <span className="text-sm text-slate-400 line-through">
+                        {formatMoney(product.original_price)}
+                      </span>
+                      {/*
+                      <span className="text-sm text-slate-400 line-through">
                         ₹{product.original_price.toLocaleString('en-IN')}
                       </span>
+                      </span>
+                      */}
                       <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
                         {product.discount_percent}% OFF
                       </span>
@@ -165,7 +216,7 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
             </div>
             <div className="bg-white p-2 rounded-lg border border-slate-100 text-center">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Price/Value (25%)</span>
-              <span className="text-sm font-bold text-emerald-600">{price_value_score || 75}/100</span>
+              <span className="text-sm font-bold text-emerald-600">{price_value_score !== null && price_value_score !== undefined ? `${price_value_score}/100` : 'Not available'}</span>
             </div>
             <div className="bg-white p-2 rounded-lg border border-slate-100 text-center">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rating (20%)</span>
@@ -233,44 +284,86 @@ export default function RecommendationCard({ recommendation, onSelectProduct, is
           </div>
         </div>
 
-        {/* Marketplace Offers Comparison */}
-        {product.offers && product.offers.length > 0 && (
+        {/* Marketplace Offers Comparison (Amazon India, Flipkart, and Myntra) */}
+        {product.offers && product.offers.filter(o => {
+          const m = (o.marketplace || '').toLowerCase();
+          return m.includes('amazon') || m.includes('flipkart') || m.includes('myntra');
+        }).length > 0 && (
           <div className="space-y-2 border-t border-slate-100 pt-4">
             <span className="text-xs font-bold text-slate-600 block uppercase tracking-wider">
               Available at Authorized Marketplaces
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {product.offers.map((off, idx) => (
-                <MarketplaceOffer key={idx} offer={off} />
-              ))}
+              {product.offers
+                .filter(o => {
+                  const m = (o.marketplace || '').toLowerCase();
+                  return m.includes('amazon') || m.includes('flipkart') || m.includes('myntra');
+                })
+                .map((off, idx) => (
+                  <MarketplaceOffer key={idx} offer={off} />
+                ))}
             </div>
           </div>
         )}
 
+        {/* Product Coupons & Offers Section */}
+        <ProductOffersSection product={product} />
+
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => onSelectProduct(product)}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1"
-          >
-            <span>View Full Specs & Review Sentiment</span>
-            <svg className="w-4 h-4 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={() => onSelectProduct(product, recommendation)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1"
+            >
+              <span>View Full Specs & Review Sentiment</span>
+              <svg className="w-4 h-4 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenPriceAlert) onOpenPriceAlert(product);
+              }}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50/60 text-xs font-medium transition flex items-center space-x-1"
+              title="Set Price Drop Alert"
+            >
+              <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span>Alert</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className={`p-1.5 rounded-lg border text-xs font-medium transition flex items-center space-x-1 ${
+                isSaved
+                  ? 'bg-rose-50 border-rose-200 text-rose-600 font-bold'
+                  : 'border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50/50'
+              }`}
+              title="Save to My Profile Bookmarks"
+            >
+              <svg className="w-3.5 h-3.5" fill={isSaved ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              <span>{isSaved ? 'Saved' : 'Save'}</span>
+            </button>
+          </div>
           
-          <a
+          {product.product_url && <a
             href={product.product_url}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm shadow-indigo-600/20"
           >
-            <span>Visit {product.marketplace}</span>
+            <span>View Product · {product.marketplace}</span>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-          </a>
+          </a>}
         </div>
       </div>
     </div>

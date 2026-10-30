@@ -6,29 +6,134 @@ export default function Question({ question, value, onChange }) {
   const renderControl = () => {
     switch (type) {
       case 'range_slider': {
-        const currentVal = value !== undefined ? Number(value) : (question.default_value || min_value || 0);
+        const minLimit = Number(min_value || 1000);
+        const maxLimit = Number(max_value || 200000);
+        const stepVal = Number(step || 1000);
+
+        let currentMin = minLimit;
+        let currentMax = Number(question.default_value || maxLimit);
+
+        if (typeof value === 'object' && value !== null) {
+          if (value.min !== undefined) currentMin = Number(value.min);
+          if (value.max !== undefined) currentMax = Number(value.max);
+        } else if (typeof value === 'number') {
+          currentMax = Number(value);
+        }
+
+        const handleMinChange = (newMin) => {
+          const clampedMin = Math.min(Math.max(newMin, minLimit), currentMax - stepVal);
+          onChange(id, { min: clampedMin, max: currentMax });
+        };
+
+        const handleMaxChange = (newMax) => {
+          const clampedMax = Math.max(Math.min(newMax, maxLimit), currentMin + stepVal);
+          onChange(id, { min: currentMin, max: clampedMax });
+        };
+
         return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-indigo-600">
-                {unit || ''} {Number(currentVal).toLocaleString('en-IN')}
-              </span>
-              <span className="text-xs px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
-                Target Budget
+          <div className="space-y-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200/90 shadow-sm">
+            {/* Range Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-bold block mb-0.5">
+                  Selected Price Range
+                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl sm:text-2xl font-black text-indigo-700 tracking-tight">
+                    {unit || '₹'}{Number(currentMin).toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-slate-400 font-bold text-sm sm:text-base">to</span>
+                  <span className="text-xl sm:text-2xl font-black text-indigo-700 tracking-tight">
+                    {unit || '₹'}{Number(currentMax).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+              <span className="self-start sm:self-center text-xs px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-800 font-bold border border-indigo-200">
+                Min — Max Filter
               </span>
             </div>
-            <input
-              type="range"
-              min={min_value || 1000}
-              max={max_value || 200000}
-              step={step || 1000}
-              value={currentVal}
-              onChange={(e) => onChange(id, Number(e.target.value))}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
-            />
-            <div className="flex justify-between text-xs text-slate-400 font-medium">
-              <span>{unit || ''} {Number(min_value || 1000).toLocaleString('en-IN')}</span>
-              <span>{unit || ''} {Number(max_value || 200000).toLocaleString('en-IN')}</span>
+
+            {/* Direct Number Input Fields */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-[11px] font-bold uppercase text-slate-600 block mb-1">
+                  Minimum Price
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                    {unit || '₹'}
+                  </span>
+                  <input
+                    type="number"
+                    min={minLimit}
+                    max={currentMax - stepVal}
+                    step={stepVal}
+                    value={currentMin}
+                    onChange={(e) => handleMinChange(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 text-sm font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-900 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase text-slate-600 block mb-1">
+                  Maximum Price
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                    {unit || '₹'}
+                  </span>
+                  <input
+                    type="number"
+                    min={currentMin + stepVal}
+                    max={maxLimit}
+                    step={stepVal}
+                    value={currentMax}
+                    onChange={(e) => handleMaxChange(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 text-sm font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-900 shadow-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dual Sliders */}
+            <div className="space-y-3 pt-1">
+              <div>
+                <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                  <span>Min: {unit || '₹'}{Number(currentMin).toLocaleString('en-IN')}</span>
+                  <span>Floor: {unit || '₹'}{Number(minLimit).toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  min={minLimit}
+                  max={currentMax - stepVal}
+                  step={stepVal}
+                  value={currentMin}
+                  onChange={(e) => handleMinChange(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                  <span>Max: {unit || '₹'}{Number(currentMax).toLocaleString('en-IN')}</span>
+                  <span>Ceiling: {unit || '₹'}{Number(maxLimit).toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  min={currentMin + stepVal}
+                  max={maxLimit}
+                  step={stepVal}
+                  value={currentMax}
+                  onChange={(e) => handleMaxChange(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+              <span>Catalog Minimum: {unit || '₹'} {Number(minLimit).toLocaleString('en-IN')}</span>
+              <span>Catalog Maximum: {unit || '₹'} {Number(maxLimit).toLocaleString('en-IN')}</span>
             </div>
           </div>
         );

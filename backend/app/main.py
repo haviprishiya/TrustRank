@@ -1,19 +1,28 @@
 import os
+from app.api.products import router as products_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from app.core.config import settings
 from app.api.endpoints import router as api_router
+from app.api.images import router as images_router
+from app.api.auth import router as auth_router
+from app.api.coupons import router as coupons_router
+from app.api.history import router as history_router
+from app.api.alerts import router as alerts_router
+import asyncio
+from app.services.alert_service import AlertService
 
 app = FastAPI(
+     
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="TrustRank: Production-Quality Real-Time Shopping Research & Recommendation Platform",
     docs_url="/docs",
     redoc_url="/redoc"
 )
-
+app.include_router(products_router)
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +34,27 @@ app.add_middleware(
 
 # Include API Endpoints
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(images_router, prefix=settings.API_V1_PREFIX)
+app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+app.include_router(coupons_router, prefix=settings.API_V1_PREFIX)
+app.include_router(history_router, prefix=settings.API_V1_PREFIX)
+app.include_router(alerts_router, prefix=settings.API_V1_PREFIX)
+
+# Periodic Price Drop Monitor
+async def _periodic_price_check_worker():
+    while True:
+        try:
+            await asyncio.sleep(900)  # Check every 15 minutes
+            await AlertService.check_alerts()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
+
+@app.on_event("startup")
+async def start_periodic_price_monitor():
+    AlertService.initialize_db()
+    asyncio.create_task(_periodic_price_check_worker())
 
 # Static Files & SPA Routing
 # Check for static directories (trustrank/static or frontend/dist)

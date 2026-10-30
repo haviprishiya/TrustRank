@@ -1,5 +1,6 @@
 import unittest
 from app.services.intent_service import IntentService
+from app.services.question_service import QuestionService
 
 class TestIntentService(unittest.TestCase):
     def test_phone_does_not_match_headphones(self):
@@ -40,6 +41,36 @@ class TestIntentService(unittest.TestCase):
         intent = IntentService.detect_intent("Apple MacBook Air M2 16GB")
         self.assertEqual(intent.detected_category, "laptop")
         self.assertIn("Apple", intent.extracted_brands)
+
+    def test_generic_requirement_extraction(self):
+        intent = IntentService.detect_intent("best shampoo for dandruff and oily scalp")
+        self.assertEqual(intent.detected_category, "hair_care")
+        self.assertEqual(intent.extracted_requirements, ["dandruff", "oily scalp"])
+
+        intent = IntentService.detect_intent("phone with good camera under 30000")
+        self.assertEqual(intent.extracted_requirements, ["good camera"])
+        self.assertEqual(intent.extracted_budget, 30000.0)
+
+    def test_product_specific_wizard_questions(self):
+        shampoo = IntentService.detect_intent("shampoo")
+        shampoo_questions = QuestionService.get_questions_for_intent(shampoo)
+        shampoo_text = " ".join(q.question + " " + " ".join(option.label for option in q.options) for q in shampoo_questions).lower()
+        self.assertEqual(shampoo.detected_category, "hair_care")
+        self.assertIn("hair concern", shampoo_text)
+        self.assertNotIn("face wash", shampoo_text)
+        self.assertNotIn("sunscreen", shampoo_text)
+
+        face_wash = IntentService.detect_intent("face wash")
+        self.assertEqual(face_wash.detected_category, "skincare")
+        self.assertIn("skincare product", QuestionService.get_questions_for_intent(face_wash)[0].question.lower())
+
+        lipstick = IntentService.detect_intent("lipstick")
+        self.assertEqual(lipstick.detected_category, "makeup")
+        self.assertIn("makeup", QuestionService.get_questions_for_intent(lipstick)[0].question.lower())
+
+        chair = IntentService.detect_intent("office chair")
+        self.assertEqual(chair.detected_category, "furniture")
+        self.assertIn("chair", " ".join(q.question.lower() for q in QuestionService.get_questions_for_intent(chair)))
 
 if __name__ == '__main__':
     unittest.main()

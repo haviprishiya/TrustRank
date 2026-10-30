@@ -1,10 +1,15 @@
 import React from 'react';
 
 export default function MarketplaceOffer({ offer }) {
-  const { marketplace, current_price, original_price, discount_percent, in_stock, product_url, rating, review_count } = offer;
+  const { marketplace, current_price, original_price, discount_percent, in_stock, product_url, rating, review_count, currency = 'INR' } = offer;
+  const formatMoney = (value) => new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : undefined, {
+    style: 'currency', currency, maximumFractionDigits: 2,
+  }).format(value);
 
   const isAmazon = marketplace.toLowerCase().includes('amazon');
   const isFlipkart = marketplace.toLowerCase().includes('flipkart');
+  const isCroma = marketplace.toLowerCase().includes('croma');
+  const isMyntra = marketplace.toLowerCase().includes('myntra');
 
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/90 hover:border-slate-300 transition">
@@ -12,9 +17,11 @@ export default function MarketplaceOffer({ offer }) {
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
           isAmazon ? 'bg-amber-100 text-amber-900 border border-amber-200' :
           isFlipkart ? 'bg-blue-100 text-blue-900 border border-blue-200' :
+          isCroma ? 'bg-teal-100 text-teal-900 border border-teal-200' :
+          isMyntra ? 'bg-pink-100 text-pink-900 border border-pink-200' :
           'bg-slate-200 text-slate-800'
         }`}>
-          {isAmazon ? 'AMZ' : isFlipkart ? 'FK' : 'SHOP'}
+          {isAmazon ? 'AMZ' : isFlipkart ? 'FK' : isCroma ? 'CR' : isMyntra ? 'MYN' : 'SHOP'}
         </div>
         <div>
           <div className="flex items-center space-x-2">
@@ -38,14 +45,10 @@ export default function MarketplaceOffer({ offer }) {
       <div className="flex items-center space-x-3">
         <div className="text-right">
           <div className="text-sm font-bold text-slate-900">
-            {current_price !== null && current_price !== undefined
-              ? `₹${current_price.toLocaleString('en-IN')}`
-              : 'Price not listed'}
+            {current_price !== null && current_price !== undefined ? formatMoney(current_price) : 'Price not listed'}
           </div>
           {original_price && original_price > current_price && (
-            <div className="text-[11px] text-slate-400 line-through">
-              ₹{original_price.toLocaleString('en-IN')}
-            </div>
+            <div className="text-[11px] text-slate-400 line-through">{formatMoney(original_price)}</div>
           )}
         </div>
 

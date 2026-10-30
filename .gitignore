@@ -3,6 +3,20 @@
 .env.*
 !.env.example
 
+# Local databases and SQLite files
+*.db
+*.sqlite
+*.sqlite3
+backend/trustrank_users.db
+
+# Backup folders and files
+.trustrank-restore-backup*/
+*backup*
+*.bak
+
+# Embedded runtimes and portable environments
+.python/
+
 # JavaScript dependencies and build artifacts
 node_modules/
 dist/

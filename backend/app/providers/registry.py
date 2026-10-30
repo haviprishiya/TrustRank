@@ -1,25 +1,32 @@
 import asyncio
-import logging
 from typing import List, Dict
 from app.models.schemas import NormalizedProduct, ProviderStatusInfo
 from app.providers.base import BaseProductProvider
-from app.providers.amazon_provider import AmazonCreatorsAPIProvider
+from app.providers.amazon_provider import AmazonPAAPIProvider, AmazonCreatorsAPIProvider
 from app.providers.flipkart_provider import FlipkartAffiliateProvider
+from app.providers.brightdata_provider import BrightDataAmazonProvider, BrightDataFlipkartProvider
+from app.providers.myntra_provider import MyntraProvider
+from app.providers.croma_provider import CromaProvider
 from app.providers.rapidapi_provider import RapidApiAmazonProvider, RapidApiFlipkartProvider
 from app.providers.serpapi_provider import SerpApiShoppingProvider
 from app.providers.open_data_provider import OpenBeautyFactsProvider
-
-logger = logging.getLogger(__name__)
+from app.providers.live_search_provider import LiveSearchMarketplaceProvider
 
 class ProviderRegistry:
     def __init__(self):
         self.providers: Dict[str, BaseProductProvider] = {
             "amazon_creators_india": AmazonCreatorsAPIProvider(),
+            "amazon_paapi_india": AmazonPAAPIProvider(),
             "flipkart_affiliate": FlipkartAffiliateProvider(),
+            "brightdata_amazon_search": BrightDataAmazonProvider(),
+            "brightdata_flipkart_products": BrightDataFlipkartProvider(),
+            "myntra_fashion": MyntraProvider(),
+            "croma_electronics": CromaProvider(),
             "rapidapi_amazon_india": RapidApiAmazonProvider(),
             "rapidapi_flipkart": RapidApiFlipkartProvider(),
             "serpapi_shopping_india": SerpApiShoppingProvider(),
-            "open_beauty_facts": OpenBeautyFactsProvider()
+            "open_beauty_facts": OpenBeautyFactsProvider(),
+            "live_search_india": LiveSearchMarketplaceProvider()
         }
 
     def get_provider(self, provider_id: str) -> BaseProductProvider:
@@ -30,38 +37,33 @@ class ProviderRegistry:
 
     async def search_all(self, query: str, category: str, limit: int = 15) -> List[NormalizedProduct]:
         """
-        Executes parallel searches across all available configured providers.
+        Executes parallel searches across authorized Amazon and Flipkart live providers.
         Aggregates live products and updates provider statuses.
         """
-        selected = [
-            provider for provider in self.providers.values()
-            if provider.is_enabled() and provider.is_configured()
-        ]
-        logger.info("Provider selection query=%r category=%r selected=%s", query, category, [p.provider_id for p in selected])
-
-        async def run_provider(provider: BaseProductProvider):
-            logger.info("Provider request started provider=%s query=%r", provider.provider_id, query)
+        async def _run_provider(p: BaseProductProvider):
             try:
-                result = await provider.search(query, category, limit=limit)
-                logger.info("Provider request succeeded provider=%s products=%d", provider.provider_id, len(result))
-                return result
-            except Exception as error:
-                logger.exception("Provider request failed provider=%s error_type=%s", provider.provider_id, type(error).__name__)
-                provider.record_unexpected_error(error)
-                return error
+                return await asyncio.wait_for(p.search(query, category, limit=limit), timeout=18.0)
+            except asyncio.TimeoutError:
+                p._last_status = "unavailable"
+                p._last_message = f"{p.name} search timed out after 18 seconds."
+                return []
+            except Exception as e:
+                p._last_status = "unavailable"
+                p._last_message = str(e)
+                return []
 
-        tasks = [run_provider(provider) for provider in selected]
+        tasks = []
+        for p_id, provider in self.providers.items():
+            # Search configured Amazon, Flipkart, and Myntra providers
+            if provider.is_configured() and p_id not in ("croma_electronics", "open_beauty_facts"):
+                tasks.append(_run_provider(provider))
             
         results_nested = await asyncio.gather(*tasks, return_exceptions=True)
         
         all_products: List[NormalizedProduct] = []
-        for provider, result in zip(selected, results_nested):
+        for result in results_nested:
             if isinstance(result, list):
                 all_products.extend(result)
-            elif isinstance(result, Exception):
-                # Providers normally translate errors into status-bearing empty results.
-                # Preserve diagnostics if an unexpected exception escapes one adapter.
-                provider.record_unexpected_error(result)
                 
         return all_products
 

@@ -39,7 +39,7 @@ export default function SearchBar({ onSearch, isLoading, initialQuery = '' }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search any product (e.g. laptop, phone, skincare, headphones, 4K TV)..."
+            placeholder="Search products, e.g. Samsung phone..."
             className="w-full py-4 px-2 text-slate-900 placeholder-slate-400 text-base sm:text-lg font-medium focus:outline-none bg-transparent"
             disabled={isLoading}
           />

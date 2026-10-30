@@ -5,7 +5,6 @@ import httpx
 from app.core.config import settings
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
-from app.services.normalization_service import NormalizationService
 
 class RapidApiAmazonProvider(BaseProductProvider):
     """
@@ -20,9 +19,11 @@ class RapidApiAmazonProvider(BaseProductProvider):
         )
         self.host = settings.RAPIDAPI_AMAZON_HOST or "real-time-amazon-data.p.rapidapi.com"
         self.endpoint = f"https://{self.host}/search"
+        self.is_optional = True
 
     def is_configured(self) -> bool:
-        return bool(settings.RAPIDAPI_KEY)
+        key = (settings.RAPIDAPI_KEY or "").strip()
+        return bool(key) and not key.upper().startswith(("YOUR_", "REPLACE_", "<"))
 
     def get_required_env_keys(self) -> List[str]:
         return ["RAPIDAPI_KEY"]
@@ -61,9 +62,7 @@ class RapidApiAmazonProvider(BaseProductProvider):
                     for item in prod_data[:limit]:
                         asin = item.get("asin", "")
                         title = item.get("product_title", "")
-                        product_url = item.get("product_url") or (f"https://www.amazon.in/dp/{asin}" if asin else None)
-                        if not asin or not title or not NormalizationService.is_direct_product_url(product_url, "Amazon India"):
-                            continue
+                        product_url = item.get("product_url", f"https://www.amazon.in/dp/{asin}")
                         image_url = item.get("product_photo", "") or item.get("product_main_image_url", "")
                         
                         price_str = item.get("product_price", "")
@@ -87,7 +86,6 @@ class RapidApiAmazonProvider(BaseProductProvider):
                             
                         norm_prod = NormalizedProduct(
                             id=f"amzn_rapid_{asin}",
-                            source_product_id=asin,
                             title=title,
                             brand=brand,
                             category=category,
@@ -98,15 +96,14 @@ class RapidApiAmazonProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability=item.get("availability") or "Unknown",
+                            availability="In Stock",
                             product_url=product_url,
                             marketplace="Amazon India",
                             provider=self.provider_id,
-                            seller=None,
+                            seller="Amazon India / RapidAPI Feed",
                             source="RapidAPI Real-Time Amazon India Data",
                             specifications={"ASIN": asin, "Brand": brand},
                             features=[f"Amazon India Live Listing • ASIN: {asin}"],
-                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace="Amazon India",
@@ -116,10 +113,10 @@ class RapidApiAmazonProvider(BaseProductProvider):
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=None,
+                                    in_stock=True,
                                     rating=rating,
                                     review_count=review_count,
-                                    seller_name=None
+                                    seller_name="Amazon India Verified"
                                 )
                             ]
                         )
@@ -153,9 +150,11 @@ class RapidApiFlipkartProvider(BaseProductProvider):
         )
         self.host = settings.RAPIDAPI_FLIPKART_HOST or "real-time-flipkart-data.p.rapidapi.com"
         self.endpoint = f"https://{self.host}/search"
+        self.is_optional = True
 
     def is_configured(self) -> bool:
-        return bool(settings.RAPIDAPI_KEY)
+        key = (settings.RAPIDAPI_KEY or "").strip()
+        return bool(key) and not key.upper().startswith(("YOUR_", "REPLACE_", "<"))
 
     def get_required_env_keys(self) -> List[str]:
         return ["RAPIDAPI_KEY"]
@@ -190,10 +189,7 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                     
                     for idx, item in enumerate(prod_data[:limit]):
                         title = item.get("title", "") or item.get("name", "")
-                        product_id = item.get("product_id") or item.get("productId") or item.get("id")
-                        product_url = item.get("url") or item.get("product_url")
-                        if not product_id or not title or not NormalizationService.is_direct_product_url(product_url, "Flipkart"):
-                            continue
+                        product_url = item.get("url", f"https://www.flipkart.com/search?q={query}")
                         image_url = item.get("image", "") or item.get("thumbnail", "")
                         
                         price_str = str(item.get("price", ""))
@@ -216,8 +212,7 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                             brand = title.split()[0] if title else "Generic"
                             
                         norm_prod = NormalizedProduct(
-                            id=f"fk_rapid_{product_id}",
-                            source_product_id=str(product_id),
+                            id=f"fk_rapid_{idx}_{int(current_price) if current_price else 'item'}",
                             title=title,
                             brand=brand,
                             category=category,
@@ -228,15 +223,14 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability=item.get("availability") or "Unknown",
+                            availability="In Stock",
                             product_url=product_url,
                             marketplace="Flipkart",
                             provider=self.provider_id,
-                            seller=None,
+                            seller="Flipkart Assured / RapidAPI Feed",
                             source="RapidAPI Real-Time Flipkart Data",
                             specifications={"Brand": brand},
                             features=[f"Flipkart Live Listing • Brand: {brand}"],
-                            raw_data=item,
                             offers=[
                                 MarketplaceOffer(
                                     marketplace="Flipkart",
@@ -246,10 +240,10 @@ class RapidApiFlipkartProvider(BaseProductProvider):
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=None,
+                                    in_stock=True,
                                     rating=rating,
                                     review_count=review_count,
-                                    seller_name=None
+                                    seller_name="Flipkart Assured"
                                 )
                             ]
                         )

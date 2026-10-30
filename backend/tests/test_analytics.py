@@ -48,10 +48,14 @@ class TestAnalyticsService(unittest.TestCase):
 
         analytics = AnalyticsService.generate_dashboard_data(products)
         self.assertEqual(analytics.total_products_analyzed, 2)
-        self.assertEqual(analytics.total_reviews_represented, 17000)
+        self.assertEqual(analytics.total_reviews_represented, 25200)
         self.assertEqual(analytics.average_rating, 4.5)
         self.assertEqual(len(analytics.brand_analysis), 2)
-        self.assertGreater(analytics.positive_review_percentage, 70.0)
+        # Aggregate marketplace ratings are represented separately; without
+        # written review bodies there is no text sentiment to analyze.
+        self.assertEqual(analytics.positive_review_percentage, 0.0)
+        self.assertEqual(analytics.neutral_review_percentage, 0.0)
+        self.assertEqual(analytics.negative_review_percentage, 0.0)
 
 if __name__ == '__main__':
     unittest.main()

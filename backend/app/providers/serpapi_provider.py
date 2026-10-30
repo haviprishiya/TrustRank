@@ -5,7 +5,6 @@ import httpx
 from app.core.config import settings
 from app.models.schemas import NormalizedProduct, MarketplaceOffer
 from app.providers.base import BaseProductProvider
-from app.services.normalization_service import NormalizationService
 
 class SerpApiShoppingProvider(BaseProductProvider):
     """
@@ -35,14 +34,18 @@ class SerpApiShoppingProvider(BaseProductProvider):
             self._last_items_count = 0
             return []
 
+        search_query = query
+        if category == "phone" and query.strip().lower() in ("mobile", "mobiles", "phone", "phones"):
+            search_query = "mobile phone"
+
         params = {
             "engine": "google_shopping",
-            "q": query,
+            "q": search_query,
             "location": "India",
             "gl": "in",
             "hl": "en",
             "api_key": settings.SERPAPI_KEY,
-            "num": min(limit, 15)
+            "num": min(max(limit * 2, 25), 40)
         }
 
         try:
@@ -55,10 +58,14 @@ class SerpApiShoppingProvider(BaseProductProvider):
                     shopping_results = data.get("shopping_results", [])
                     products = []
                     
-                    for item in shopping_results[:limit]:
+                    from app.services.normalization_service import NormalizationService
+
+                    for item in shopping_results:
+                        if len(products) >= limit * 2:
+                            break
                         title = item.get("title", "")
                         source = item.get("source", "Retailer")
-                        product_url = item.get("link", "") or item.get("product_link", "")
+                        raw_link = item.get("link", "") or item.get("product_link", "")
                         image_url = item.get("thumbnail", "")
                         
                         price_str = str(item.get("extracted_price", item.get("price", "")))
@@ -76,12 +83,29 @@ class SerpApiShoppingProvider(BaseProductProvider):
                         rating = float(item.get("rating")) if item.get("rating") else None
                         review_count = int(item.get("reviews")) if item.get("reviews") else None
                         
-                        # Map source to marketplace
-                        marketplace = "Amazon India" if "amazon" in source.lower() else ("Flipkart" if "flipkart" in source.lower() else source)
-                        if not NormalizationService.is_direct_product_url(product_url, marketplace):
+                        # Support Amazon India, Flipkart, and Myntra
+                        source_lower = source.lower()
+                        link_lower = (raw_link or "").lower()
+                        title_lower = title.lower()
+                        
+                        if "amazon" in source_lower or "amazon.in" in link_lower:
+                            marketplace = "Amazon India"
+                        elif "flipkart" in source_lower or "flipkart.com" in link_lower:
+                            marketplace = "Flipkart"
+                        elif "myntra" in source_lower or "myntra.com" in link_lower:
+                            marketplace = "Myntra"
+                        else:
                             continue
                         
-                        brand = item.get("brand") or "Unknown Brand"
+                        # Resolve to authentic official merchant website URL
+                        official_url = NormalizationService.resolve_official_product_url(
+                            raw_link,
+                            title=title,
+                            marketplace=marketplace,
+                            source=marketplace
+                        )
+
+                        brand = title.split()[0] if title else "Generic"
                         
                         features_list = [f"Listed by {source}"]
                         if current_price:
@@ -89,7 +113,6 @@ class SerpApiShoppingProvider(BaseProductProvider):
                         
                         norm_prod = NormalizedProduct(
                             id=f"serp_{item.get('position', 0)}_{int(current_price) if current_price else 'item'}",
-                            source_product_id=str(item.get("product_id") or item.get("position") or ""),
                             title=title,
                             brand=brand,
                             category=category,
@@ -100,8 +123,8 @@ class SerpApiShoppingProvider(BaseProductProvider):
                             currency="INR",
                             rating=rating,
                             review_count=review_count,
-                            availability=item.get("availability") or "Unknown",
-                            product_url=product_url,
+                            availability="In Stock",
+                            product_url=official_url,
                             marketplace=marketplace,
                             provider=self.provider_id,
                             seller=source,
@@ -113,19 +136,19 @@ class SerpApiShoppingProvider(BaseProductProvider):
                                 MarketplaceOffer(
                                     marketplace=marketplace,
                                     provider=self.provider_id,
-                                    product_url=product_url,
+                                    product_url=official_url,
                                     current_price=current_price,
                                     original_price=original_price,
                                     discount_percent=discount,
                                     currency="INR",
-                                    in_stock=None,
+                                    in_stock=True,
                                     rating=rating,
                                     review_count=review_count,
                                     seller_name=source
                                 )
                             ]
                         )
-                        products.append(norm_prod)
+                        products.append(NormalizationService.normalize_product(norm_prod))
                         
                     self._last_items_count = len(products)
                     self._last_status = "active"

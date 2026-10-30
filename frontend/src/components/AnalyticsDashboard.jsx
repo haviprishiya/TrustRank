@@ -1,6 +1,16 @@
 import React from 'react';
+import { Package, ExternalLink, ShieldCheck, Trophy, Sparkles, Star } from 'lucide-react';
 
-export default function AnalyticsDashboard({ analytics }) {
+export default function AnalyticsDashboard({
+  analytics,
+  recommendations = [],
+  topComparison = [],
+  bestForYou = null,
+  bestValue = null,
+  bestReviewed = null,
+  bestAlternative = null,
+  onSelectProduct = () => {}
+}) {
   if (!analytics || analytics.total_products_analyzed === 0) {
     return (
       <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center text-slate-500">
@@ -64,6 +74,271 @@ export default function AnalyticsDashboard({ analytics }) {
           </div>
         </div>
       </div>
+
+      {/* Top Recommendation Highlights */}
+      {recommendations.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <span>Top Recommendation Highlights</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Key winners identified by TrustRank algorithms across Amazon India and Flipkart
+              </p>
+            </div>
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+              {recommendations.length} Scored Recommendations
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Best for You', rec: bestForYou || recommendations[0], icon: '🏆', color: 'from-amber-500 to-amber-600' },
+              { label: 'Best Value', rec: bestValue || recommendations[1], icon: '💰', color: 'from-emerald-500 to-emerald-600' },
+              { label: 'Best Reviewed', rec: bestReviewed || recommendations[2], icon: '⭐', color: 'from-blue-500 to-blue-600' },
+              { label: 'Top Alternative', rec: bestAlternative || recommendations[3], icon: '🔄', color: 'from-indigo-500 to-indigo-600' },
+            ].filter(card => card.rec).map((card, idx) => {
+              const r = card.rec;
+              const p = r.product;
+              return (
+                <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between space-y-3 hover:border-indigo-400 transition group">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full text-white bg-gradient-to-r ${card.color}`}>
+                        {card.icon} {card.label}
+                      </span>
+                      <span className="text-xs font-black text-indigo-700">
+                        {r.trustrank_score}/100
+                      </span>
+                    </div>
+
+                    <div className="w-full h-28 bg-slate-50 rounded-xl p-2 flex items-center justify-center overflow-hidden">
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.title}
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <Package className="w-8 h-8 text-slate-300 stroke-1" />
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                        {p.brand}
+                      </span>
+                      <h4
+                        onClick={() => onSelectProduct(p, r)}
+                        className="text-xs font-bold text-slate-900 hover:text-indigo-600 cursor-pointer line-clamp-2 mt-1"
+                      >
+                        {p.title}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-baseline justify-between pt-1">
+                      <span className="text-sm font-black text-slate-900">
+                        {p.current_price ? `₹${p.current_price.toLocaleString('en-IN')}` : 'Check store'}
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        {p.marketplace}
+                      </span>
+                    </div>
+
+                    {r.positive_reasons?.length > 0 && (
+                      <p className="text-[11px] text-emerald-800 bg-emerald-50/80 p-2 rounded-lg line-clamp-2 font-medium">
+                        ✓ {r.positive_reasons[0]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onSelectProduct(p, r)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition flex-1 text-center"
+                    >
+                      Analysis Report
+                    </button>
+                    {p.product_url && (
+                      <a
+                        href={p.product_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition"
+                        title={`View on ${p.marketplace}`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recommendation Scoring Matrix Table */}
+      {recommendations.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                <span>Recommendation Intelligence & Scoring Matrix</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Full comparative analysis across candidate listings with transparent algorithmic scores
+              </p>
+            </div>
+            <span className="text-xs text-slate-400 font-medium">
+              Ranked by Multi-Factor TrustRank Score
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[750px]">
+              <thead>
+                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-400 bg-slate-50/50">
+                  <th className="p-3 w-12 text-center">Rank</th>
+                  <th className="p-3">Product Name & Brand</th>
+                  <th className="p-3">Marketplace</th>
+                  <th className="p-3">TrustRank</th>
+                  <th className="p-3">Spec Match</th>
+                  <th className="p-3">Live Price</th>
+                  <th className="p-3">Verified Rating</th>
+                  <th className="p-3">Key Advantage</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
+                {recommendations.map((rec, idx) => {
+                  const p = rec.product;
+                  const score = rec.trustrank_score;
+                  const match = rec.requirement_match_percentage;
+                  const badge = rec.category_badges?.[0];
+                  return (
+                    <tr key={p.id || idx} className="hover:bg-slate-50/70 transition">
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-black text-[11px] ${
+                          idx === 0 ? 'bg-amber-100 text-amber-800 font-extrabold' :
+                          idx === 1 ? 'bg-slate-200 text-slate-700' :
+                          idx === 2 ? 'bg-amber-50 text-amber-900' :
+                          'text-slate-400 font-bold'
+                        }`}>
+                          #{idx + 1}
+                        </span>
+                      </td>
+                      <td className="p-3 max-w-[240px]">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-10 h-10 bg-slate-50 rounded-lg border border-slate-100 p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                            {p.image_url ? (
+                              <img
+                                src={p.image_url}
+                                alt={p.title}
+                                referrerPolicy="no-referrer"
+                                loading="lazy"
+                                className="max-h-full max-w-full object-contain"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <Package className="w-4 h-4 text-slate-300 stroke-1" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[10px] font-bold text-indigo-700 block truncate">{p.brand}</span>
+                            <div
+                              onClick={() => onSelectProduct(p, rec)}
+                              className="font-bold text-slate-900 hover:text-indigo-600 cursor-pointer truncate"
+                              title={p.title}
+                            >
+                              {p.title}
+                            </div>
+                            {badge && (
+                              <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                {badge}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 font-semibold text-slate-700 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          p.marketplace?.toLowerCase().includes('amazon')
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                            : 'bg-blue-50 text-blue-800 border border-blue-200/60'
+                        }`}>
+                          {p.marketplace || 'Store'}
+                        </span>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <span className={`font-black text-xs ${
+                            score >= 85 ? 'text-emerald-600' :
+                            score >= 70 ? 'text-indigo-600' : 'text-slate-600'
+                          }`}>
+                            {score}/100
+                          </span>
+                          <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              style={{ width: `${Math.min(100, score)}%` }}
+                              className={`h-full ${
+                                score >= 85 ? 'bg-emerald-500' :
+                                score >= 70 ? 'bg-indigo-600' : 'bg-slate-400'
+                              }`}
+                            ></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 font-bold text-emerald-600 whitespace-nowrap">
+                        {match}%
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="font-black text-slate-900">
+                          {p.current_price ? `₹${p.current_price.toLocaleString('en-IN')}` : '—'}
+                        </div>
+                        {rec.value_for_money && (
+                          <span className="text-[10px] text-slate-400 block font-semibold">
+                            {rec.value_for_money} Value
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <span className="font-bold text-slate-800">
+                          {p.rating ? `⭐ ${p.rating.toFixed(1)}` : '—'}
+                        </span>
+                        {p.review_count ? (
+                          <span className="text-[10px] text-slate-400 block">
+                            ({p.review_count.toLocaleString('en-IN')})
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="p-3 max-w-[200px]">
+                        <span className="text-slate-600 truncate block text-[11px]" title={rec.positive_reasons?.[0] || 'Meets search criteria'}>
+                          {rec.positive_reasons?.[0] || 'Meets search criteria'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => onSelectProduct(p, rec)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition"
+                        >
+                          View Report
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Brand Analysis Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">

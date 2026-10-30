@@ -30,9 +30,24 @@ export default function ProviderStatusBanner({ providers, isOpen, onClose }) {
 
         <div className="space-y-3">
           {providers?.map((p) => {
-            const isActive = p.status === 'active' || p.status === 'idle';
-            const isCredentialsRequired = p.status === 'credentials_required';
+            const isActive = p.status === 'active' || p.status === 'idle' || p.status === 'ready' || (p.configured && p.status === 'initialized');
+            const isOptional = Boolean(p.is_optional || p.status?.includes('optional'));
+            const isCredentialsRequired = p.status === 'credentials_required' && !isOptional;
             const status = p.status || 'unknown';
+
+            let badgeClass = 'bg-slate-200 text-slate-700';
+            let badgeText = status.replace('_', ' ');
+
+            if (isActive) {
+              badgeClass = 'bg-emerald-100 text-emerald-800';
+              badgeText = 'Connected · ' + (status === 'initialized' ? 'Ready' : status.replace('_', ' '));
+            } else if (isOptional) {
+              badgeClass = 'bg-slate-100 text-slate-600 border border-slate-200';
+              badgeText = 'Optional · Unavailable';
+            } else if (isCredentialsRequired) {
+              badgeClass = 'bg-amber-100 text-amber-900 border border-amber-200';
+              badgeText = 'Credentials Required';
+            }
 
             return (
               <div key={p.provider_id} className="p-4 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2">
@@ -41,12 +56,8 @@ export default function ProviderStatusBanner({ providers, isOpen, onClose }) {
                     <span className="font-bold text-sm text-slate-900">{p.name}</span>
                     <span className="text-xs text-slate-500">({p.marketplace})</span>
                   </div>
-                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                    isActive ? 'bg-emerald-100 text-emerald-800' :
-                    isCredentialsRequired ? 'bg-amber-100 text-amber-900' :
-                    'bg-slate-200 text-slate-700'
-                  }`}>
-                    {status.replace('_', ' ')}
+                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${badgeClass}`}>
+                    {badgeText}
                   </span>
                 </div>
 

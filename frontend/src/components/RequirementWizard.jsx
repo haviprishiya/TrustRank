@@ -23,7 +23,32 @@ export default function RequirementWizard({ intent, questions, onGenerate, onEdi
   };
 
   const handleGenerate = () => {
-    onGenerate(answers);
+    const budgetQuestion = questions.find((question) => question.id === 'budget');
+    let minPrice = 0;
+    let maxPrice = 0;
+    const budgetVal = answers.budget;
+
+    if (typeof budgetVal === 'object' && budgetVal !== null) {
+      minPrice = Number(budgetVal.min || 0);
+      maxPrice = Number(budgetVal.max || 0);
+    } else if (typeof budgetVal === 'number') {
+      maxPrice = budgetVal;
+    }
+
+    const budgetIsExplicit = Boolean(
+      budgetQuestion && (
+        (typeof budgetVal === 'object' && budgetVal !== null) ||
+        (answers.budget !== undefined && answers.budget !== budgetQuestion.default_value)
+      )
+    );
+
+    onGenerate({
+      ...answers,
+      budget: maxPrice || (typeof budgetVal === 'number' ? budgetVal : 0),
+      min_price: minPrice,
+      max_price: maxPrice,
+      budget_is_explicit: budgetIsExplicit
+    });
   };
 
   return (
@@ -37,6 +62,11 @@ export default function RequirementWizard({ intent, questions, onGenerate, onEdi
               {intent.category_display_name}
             </span>
           </div>
+          {intent.extracted_requirements?.length > 0 && (
+            <div className="text-xs text-emerald-200 mt-2">
+              Requirement: {intent.extracted_requirements.join(' + ')}
+            </div>
+          )}
           <h2 className="text-xl sm:text-2xl font-bold mt-1 tracking-tight">
             Personalize requirements for <span className="text-indigo-300">"{intent.raw_query}"</span>
           </h2>

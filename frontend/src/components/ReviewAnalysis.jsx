@@ -6,6 +6,8 @@ export default function ReviewAnalysis({ reviewAnalysis }) {
   const {
     source_note,
     total_reviews_analyzed,
+    written_reviews_count = 0,
+    written_reviews = [],
     positive_percentage,
     neutral_percentage,
     negative_percentage,
@@ -13,7 +15,9 @@ export default function ReviewAnalysis({ reviewAnalysis }) {
     common_complaints,
     recurring_themes,
     rating_distribution,
-    summary
+    summary,
+    combined_rating,
+    marketplace_breakdown = []
   } = reviewAnalysis;
 
   return (
@@ -25,28 +29,40 @@ export default function ReviewAnalysis({ reviewAnalysis }) {
             <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <span>Verified Customer Sentiment Analysis</span>
+            <span>Cross-Marketplace Review Evidence</span>
           </h4>
           <p className="text-[11px] text-slate-400 mt-0.5">{source_note}</p>
         </div>
-        <div className="text-xs text-slate-500 font-medium">
-          {total_reviews_analyzed?.toLocaleString('en-IN')} ratings represented
+        <div className="text-right">
+          <div className="text-xs font-semibold text-slate-700">
+            {total_reviews_analyzed ? `${total_reviews_analyzed.toLocaleString('en-IN')} total ratings` : 'Ratings unavailable'}
+          </div>
+          <div className="text-[11px] text-indigo-600 font-medium">
+            {written_reviews_count > 0 ? `${written_reviews_count} written customer reviews analyzed` : 'Written reviews unavailable'}
+          </div>
         </div>
       </div>
 
-      {/* Sentiment Progress Bars */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs font-semibold">
-          <span className="text-emerald-700">Positive: {positive_percentage}%</span>
-          <span className="text-amber-700">Neutral: {neutral_percentage}%</span>
-          <span className="text-red-600">Negative: {negative_percentage}%</span>
+      {combined_rating !== null && combined_rating !== undefined && (
+        <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 flex items-center justify-between">
+          <span className="text-xs font-bold text-indigo-950">Combined marketplace rating</span>
+          <span className="text-sm font-black text-indigo-700">⭐ {combined_rating.toFixed(2)}/5</span>
         </div>
-        <div className="w-full h-3 bg-slate-100 rounded-full flex overflow-hidden">
-          <div style={{ width: `${positive_percentage}%` }} className="bg-emerald-500 h-full" title={`Positive ${positive_percentage}%`}></div>
-          <div style={{ width: `${neutral_percentage}%` }} className="bg-amber-400 h-full" title={`Neutral ${neutral_percentage}%`}></div>
-          <div style={{ width: `${negative_percentage}%` }} className="bg-red-400 h-full" title={`Negative ${negative_percentage}%`}></div>
+      )}
+
+      {marketplace_breakdown.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {marketplace_breakdown.map((marketplace) => (
+            <div key={marketplace.marketplace} className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+              <div className="text-xs font-bold text-slate-900">{marketplace.marketplace}</div>
+              <div className="text-xs text-slate-600 mt-1">
+                {marketplace.rating !== null && marketplace.rating !== undefined ? `⭐ ${marketplace.rating.toFixed(1)}` : 'Rating unavailable'}
+                {marketplace.review_count !== null && marketplace.review_count !== undefined ? ` · ${marketplace.review_count.toLocaleString('en-IN')} reviews` : ' · Review count unavailable'}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
 
       {/* Summary */}
       {summary && (
@@ -55,6 +71,14 @@ export default function ReviewAnalysis({ reviewAnalysis }) {
         </p>
       )}
 
+      {!reviewAnalysis.has_detailed_reviews && (
+        <p className="text-xs text-slate-500 bg-amber-50 p-3 rounded-xl border border-amber-100">
+          Limited review evidence for this requirement. The displayed rating and review count come from the marketplace feeds.
+        </p>
+      )}
+
+      {reviewAnalysis.has_detailed_reviews && (
+      <>
       {/* Praised vs Complaints Breakdown */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
         {most_praised_features && most_praised_features.length > 0 && (
@@ -95,6 +119,49 @@ export default function ReviewAnalysis({ reviewAnalysis }) {
           </div>
         )}
       </div>
+
+      {/* Authentic Customer Reviews */}
+      {written_reviews && written_reviews.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+              <span>Authentic Customer Reviews</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">
+                {written_reviews.length} analyzed
+              </span>
+            </span>
+            <span className="text-[10px] text-slate-400">Verified Marketplace Feed</span>
+          </div>
+          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {written_reviews.slice(0, 4).map((rev, idx) => (
+              <div key={rev.id || idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center space-x-1.5">
+                    {rev.rating !== null && rev.rating !== undefined && (
+                      <span className="font-bold text-amber-600">⭐ {rev.rating}</span>
+                    )}
+                    <span className="font-semibold text-slate-800">{rev.reviewer_name || 'Reviewer unavailable'}</span>
+                    {rev.verified_purchase && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Verified Purchase</span>
+                    )}
+                  </div>
+                  {rev.review_date && (
+                    <span className="text-[10px] text-slate-400">{rev.review_date}</span>
+                  )}
+                </div>
+                {rev.title && (
+                  <div className="font-bold text-slate-800 text-[11px]">{rev.title}</div>
+                )}
+                <p className="text-slate-600 text-[11px] line-clamp-3">
+                  {rev.review_text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      </>
+      )}
     </div>
   );
 }

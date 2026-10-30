@@ -1,4 +1,126 @@
 import React from 'react';
+import { ImageOff } from 'lucide-react';
+
+function offerFor(rec, marketplace) {
+  if (!rec) return null;
+  const mTarget = marketplace.toLowerCase();
+  const product = rec.product || rec;
+
+  const isTargetMarketplace = (val) => {
+    if (!val || typeof val !== 'string') return false;
+    const v = val.toLowerCase();
+    if (mTarget === 'amazon') return v.includes('amazon');
+    if (mTarget === 'flipkart') return v.includes('flipkart');
+    if (mTarget === 'myntra') return v.includes('myntra');
+    return v.includes(mTarget);
+  };
+
+  // 1. Check marketplace_comparison array
+  const compList = Array.isArray(rec.marketplace_comparison)
+    ? rec.marketplace_comparison
+    : (Array.isArray(product.marketplace_comparison) ? product.marketplace_comparison : []);
+
+  const comp = compList.find((offer) =>
+    isTargetMarketplace(offer?.marketplace) || isTargetMarketplace(offer?.seller_name)
+  );
+  if (comp) return comp;
+
+  // 2. Check product.offers list
+  const offersList = Array.isArray(product.offers)
+    ? product.offers
+    : (Array.isArray(rec.offers) ? rec.offers : []);
+  const offer = offersList.find((o) =>
+    isTargetMarketplace(o?.marketplace) || isTargetMarketplace(o?.seller_name) || isTargetMarketplace(o?.provider)
+  );
+  if (offer) {
+    return {
+      marketplace: offer.marketplace || marketplace,
+      current_price: offer.current_price,
+      original_price: offer.original_price,
+      rating: offer.rating,
+      review_count: offer.review_count,
+      availability: offer.in_stock === true ? 'In Stock' : (offer.in_stock === false ? 'Out of Stock' : (offer.availability || product.availability || 'In Stock')),
+      product_url: offer.product_url,
+    };
+  }
+
+  // 3. Fallback to product itself if it belongs to this marketplace
+  const prodMarketplace = product.marketplace || product.seller || product.source || product.provider || '';
+  if (isTargetMarketplace(prodMarketplace)) {
+    return {
+      marketplace: product.marketplace || marketplace,
+      current_price: product.current_price,
+      original_price: product.original_price,
+      rating: product.rating,
+      review_count: product.review_count,
+      availability: product.availability || 'In Stock',
+      product_url: product.product_url,
+    };
+  }
+
+  return null;
+}
+
+function priceCell(rec, marketplace) {
+  const offer = offerFor(rec, marketplace);
+  if (!offer) return <span className="text-slate-400 italic">No {marketplace} listing</span>;
+  if (!offer.current_price || offer.current_price <= 0) return <span className="text-amber-700">Price not provided</span>;
+  return <div className="space-y-1"><span className="font-black text-slate-900">₹{offer.current_price.toLocaleString('en-IN')}</span>{offer.has_better_price && <span className="block w-max text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Better price</span>}</div>;
+}
+
+function ratingCell(rec, marketplace) {
+  const offer = offerFor(rec, marketplace);
+  if (!offer) return <span className="text-slate-400 italic">No {marketplace} listing</span>;
+  if (!offer.rating || offer.rating <= 0) return <span className="text-slate-400 italic">Rating not available</span>;
+  return <div className="space-y-1"><span>⭐ {offer.rating.toFixed(1)} {offer.review_count !== null && offer.review_count !== undefined ? `(${offer.review_count.toLocaleString('en-IN')} reviews)` : '(reviews not listed)'}</span>{offer.has_higher_rating && <span className="block w-max text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Higher rated</span>}</div>;
+}
+
+function availabilityCell(rec, marketplace) {
+  const offer = offerFor(rec, marketplace);
+  if (!offer) return <span className="text-slate-400 italic">No {marketplace} listing</span>;
+  return offer.availability ? <span className="font-semibold text-slate-700">{offer.availability}</span> : <span className="text-slate-400 italic">Availability not provided</span>;
+}
+
+function ProductThumbnail({ product }) {
+  const candidates = React.useMemo(() => {
+    const list = [];
+    if (product?.image_url) list.push(product.image_url);
+    if (Array.isArray(product?.image_candidates)) {
+      product.image_candidates.forEach((u) => {
+        if (u && typeof u === 'string' && !list.includes(u)) list.push(u);
+      });
+    }
+    return list;
+  }, [product?.image_url, product?.image_candidates]);
+
+  const [imgIdx, setImgIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    setImgIdx(0);
+  }, [product?.id, product?.image_url, product?.image_candidates]);
+
+  const hasImage = candidates.length > 0 && imgIdx < candidates.length;
+
+  return (
+    <div className="w-full h-24 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center mb-2 overflow-hidden">
+      {hasImage ? (
+        <img
+          src={candidates[imgIdx]}
+          alt={product.title}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          className="max-h-full max-w-full object-contain"
+          onError={() => setImgIdx((prev) => prev + 1)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-slate-400 space-y-1 p-1 text-center">
+          <ImageOff className="w-5 h-5 text-slate-300 stroke-1" />
+          <span className="text-[9px] text-slate-400 font-medium">No Image</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ComparisonTable({ comparisonProducts, onSelectProduct }) {
   if (!comparisonProducts || comparisonProducts.length === 0) {
@@ -51,21 +173,10 @@ export default function ComparisonTable({ comparisonProducts, onSelectProduct })
                     </span>
                   )}
                   {/* Thumbnail */}
-                  <div className="w-full h-24 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center mb-2 overflow-hidden">
-                    {rec.product.image_url ? (
-                      <img
-                        src={rec.product.image_url}
-                        alt={rec.product.title}
-                        className="max-h-full max-w-full object-contain"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    ) : (
-                      <span className="text-[10px] text-slate-400">No Photo</span>
-                    )}
-                  </div>
+                  <ProductThumbnail product={rec.product} />
                   <span className="text-xs font-bold text-indigo-700 block">{rec.product.brand || "Brand"}</span>
                   <div
-                    onClick={() => onSelectProduct(rec.product)}
+                    onClick={() => onSelectProduct(rec.product, rec)}
                     className="text-xs font-bold text-slate-900 hover:text-indigo-600 cursor-pointer line-clamp-2 mt-0.5"
                   >
                     {rec.product.title}
@@ -75,6 +186,43 @@ export default function ComparisonTable({ comparisonProducts, onSelectProduct })
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
+            {/* Marketplace-specific values are real fetched offers; no value is inferred when a marketplace is absent. */}
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Amazon Price (INR)</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{priceCell(rec, 'Amazon')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Flipkart Price (INR)</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{priceCell(rec, 'Flipkart')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Myntra Price (INR)</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{priceCell(rec, 'Myntra')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Amazon Rating & Reviews</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3 text-slate-700 font-medium">{ratingCell(rec, 'Amazon')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Flipkart Rating & Reviews</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3 text-slate-700 font-medium">{ratingCell(rec, 'Flipkart')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Myntra Rating & Reviews</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3 text-slate-700 font-medium">{ratingCell(rec, 'Myntra')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Amazon Availability</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{availabilityCell(rec, 'Amazon')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Flipkart Availability</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{availabilityCell(rec, 'Flipkart')}</td>)}
+            </tr>
+            <tr className="hover:bg-slate-50/50">
+              <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Myntra Availability</td>
+              {comparisonProducts.map((rec, idx) => <td key={idx} className="p-3">{availabilityCell(rec, 'Myntra')}</td>)}
+            </tr>
             {/* Price Row */}
             <tr className="hover:bg-slate-50/50">
               <td className="p-3 font-bold text-slate-600 bg-slate-50/60">Live Price (INR)</td>

@@ -16,8 +16,16 @@ class TestAPIEndpoints(unittest.TestCase):
         res = self.client.get("/api/providers/status")
         self.assertEqual(res.status_code, 200)
         data = res.json()
-        self.assertIsInstance(data, list)
-        self.assertGreater(len(data), 0)
+        self.assertIn("brightdata", data)
+        self.assertIn("ai", data)
+        self.assertIn("image", data)
+        self.assertIn("search", data)
+        self.assertIsInstance(data["providers"], list)
+        self.assertGreater(len(data["providers"]), 0)
+
+    def test_image_endpoint_reports_missing_configuration(self):
+        res = self.client.post("/api/images/generate", json={"prompt": "A product hero image"})
+        self.assertEqual(res.status_code, 503)
 
     def test_intent_detection_endpoint(self):
         res = self.client.post("/api/search/intent", json={"query": "gaming laptop under 70000"})

@@ -1,9 +1,36 @@
 import unittest
-from app.models.schemas import UserRequirementAnswers
+from unittest.mock import AsyncMock, patch
+from app.models.schemas import NormalizedProduct, UserRequirementAnswers
 from app.services.pipeline import RecommendationPipeline
 from app.providers.registry import provider_registry
 
 class TestPipelineIntegration(unittest.IsolatedAsyncioTestCase):
+    async def test_default_wizard_budget_does_not_hide_shampoo_results(self):
+        shampoo = NormalizedProduct(
+            id="shampoo-1",
+            title="Dove Daily Moisture Shampoo",
+            brand="Dove",
+            category="hair_care",
+            current_price=999.0,
+            rating=4.3,
+            review_count=1200,
+            availability="In Stock",
+            product_url="https://www.amazon.in/dp/example",
+            marketplace="Amazon India",
+            provider="brightdata_amazon_search",
+        )
+        req = UserRequirementAnswers(
+            query="shampoo",
+            category="hair_care",
+            answers={"budget": 800.0, "budget_is_explicit": False},
+        )
+
+        with patch.object(provider_registry, "search_all", new=AsyncMock(return_value=[shampoo])):
+            result = await RecommendationPipeline.run_pipeline(req)
+
+        self.assertEqual(len(result.recommendations), 1)
+        self.assertEqual(result.recommendations[0].product.title, shampoo.title)
+
     async def test_full_pipeline_flow(self):
         req = UserRequirementAnswers(
             query="gaming laptop under 75000",
@@ -17,7 +44,10 @@ class TestPipelineIntegration(unittest.IsolatedAsyncioTestCase):
             }
         )
         
-        res = await RecommendationPipeline.run_pipeline(req)
+        # This validates pipeline orchestration, not a paid provider. Live
+        # Bright Data coverage is intentionally opt-in in test_brightdata_live.
+        with patch.object(provider_registry, "search_all", new=AsyncMock(return_value=[])):
+            res = await RecommendationPipeline.run_pipeline(req)
         self.assertEqual(res.intent.detected_category, "laptop")
         self.assertIsNotNone(res.analytics)
         self.assertIsInstance(res.provider_statuses, list)

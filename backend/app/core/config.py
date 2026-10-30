@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # is launched from backend/.
     model_config = SettingsConfigDict(
         case_sensitive=True,
-        env_file=Path(__file__).resolve().parents[3] / ".env",
+        env_file=Path(__file__).resolve().parents[2] / ".env",
         extra="ignore",
     )
     
@@ -33,12 +33,11 @@ class Settings(BaseSettings):
     ]
     
     # Live Marketplace Providers Credentials (configured securely via environment)
-    # 1. Amazon Creators API (OAuth 2.0; India marketplace)
-    AMAZON_CREATORS_CREDENTIAL_ID: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_ID", "")
-    AMAZON_CREATORS_CREDENTIAL_SECRET: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_SECRET", "")
-    AMAZON_CREATORS_CREDENTIAL_VERSION: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_VERSION", "")
-    AMAZON_CREATORS_PARTNER_TAG: str = os.getenv("AMAZON_CREATORS_PARTNER_TAG", "")
-    AMAZON_CREATORS_TOKEN_ENDPOINT: str = os.getenv("AMAZON_CREATORS_TOKEN_ENDPOINT", "https://api.amazon.co.uk/auth/o2/token")
+    # 1. Amazon Official PA-API 5.0 (India: webservices.amazon.in)
+    AMAZON_PAAPI_ACCESS_KEY: str = os.getenv("AMAZON_PAAPI_ACCESS_KEY", "")
+    AMAZON_PAAPI_SECRET_KEY: str = os.getenv("AMAZON_PAAPI_SECRET_KEY", "")
+    AMAZON_PAAPI_TAG: str = os.getenv("AMAZON_PAAPI_TAG", "")
+    AMAZON_PAAPI_REGION: str = os.getenv("AMAZON_PAAPI_REGION", "in")
     
     # 2. Flipkart Affiliate API
     FLIPKART_AFFILIATE_ID: str = os.getenv("FLIPKART_AFFILIATE_ID", "")
@@ -55,6 +54,35 @@ class Settings(BaseSettings):
     # 5. Open Product Data Providers (Open Beauty Facts / Open Food Facts)
     ENABLE_OPEN_DATA_PROVIDER: bool = True
     
+    # 6. Live Search Provider
+    ENABLE_LIVE_SEARCH_PROVIDER: bool = True
+
+    # 7. Additional Store Providers
+    ENABLE_MYNTRA_PROVIDER: bool = True
+    ENABLE_CROMA_PROVIDER: bool = True
+
+    # 8. Amazon Creators API settings
+    AMAZON_CREATORS_CREDENTIAL_ID: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_ID", "")
+    AMAZON_CREATORS_CREDENTIAL_SECRET: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_SECRET", "")
+    AMAZON_CREATORS_CREDENTIAL_VERSION: str = os.getenv("AMAZON_CREATORS_CREDENTIAL_VERSION", "")
+    AMAZON_CREATORS_PARTNER_TAG: str = os.getenv("AMAZON_CREATORS_PARTNER_TAG", "")
+    AMAZON_CREATORS_TOKEN_ENDPOINT: str = os.getenv("AMAZON_CREATORS_TOKEN_ENDPOINT", "https://api.amazon.com/auth/o2/token")
+
+    # 9. Authentication & User Database Settings
+    AUTH_DB_PATH: str = os.getenv("AUTH_DB_PATH", str(Path(__file__).resolve().parents[2] / "trustrank_users.db"))
+    AUTH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("AUTH_TOKEN_EXPIRE_DAYS", "30"))
+    AUTH_SECRET_KEY: str = os.getenv("AUTH_SECRET_KEY", "trustrank-auth-secure-secret-key-2026")
+
+    # 10. SMTP Email Settings (for welcome email & notifications)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in {"true", "1", "yes"}
+    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() in {"true", "1", "yes"}
+    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "welcome@trustrank.ai")
+    EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "TrustRank Shopping Intelligence")
+
     @field_validator("DEBUG", mode="before")
     @classmethod
     def parse_debug_value(cls, value):
