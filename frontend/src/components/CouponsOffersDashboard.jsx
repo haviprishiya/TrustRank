@@ -10,9 +10,13 @@ import {
   Sparkles,
   ArrowLeft,
   AlertCircle,
-  Filter
+  Filter,
+  Flag,
+  ShieldAlert
 } from 'lucide-react';
 import { fetchCouponOffers, fetchFeaturedDeals } from '../services/api';
+import CouponReportModal from './CouponReportModal';
+import AdminReportManagement from './AdminReportManagement';
 
 export default function CouponsOffersDashboard({
   initialQuery = '',
@@ -28,6 +32,9 @@ export default function CouponsOffersDashboard({
   const [selectedMarketplace, setSelectedMarketplace] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [copiedId, setCopiedId] = useState(null);
+  const [reportingCoupon, setReportingCoupon] = useState(null);
+  const [reportSuccessToast, setReportSuccessToast] = useState('');
+  const [showAdminModeration, setShowAdminModeration] = useState(false);
 
   // Extract offers from existing recommendation products in memory first
   const localOffers = useMemo(() => {
@@ -158,15 +165,42 @@ export default function CouponsOffersDashboard({
             </div>
           </div>
 
-          {onNavigateRecommendations && recommendations.length > 0 && (
+          <div className="flex items-center space-x-2">
             <button
-              onClick={onNavigateRecommendations}
-              className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition shadow-xs"
+              type="button"
+              onClick={() => setShowAdminModeration(!showAdminModeration)}
+              className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center space-x-1.5 shadow-xs"
             >
-              Back to Ranked Recommendations ({recommendations.length})
+              <ShieldAlert className="w-4 h-4" />
+              <span>{showAdminModeration ? 'Hide Moderation' : 'Report Management'}</span>
             </button>
-          )}
+
+            {onNavigateRecommendations && recommendations.length > 0 && (
+              <button
+                onClick={onNavigateRecommendations}
+                className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition shadow-xs"
+              >
+                Back to Ranked Recommendations ({recommendations.length})
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Report Success Toast */}
+        {reportSuccessToast && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center space-x-2 font-medium animate-in fade-in">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{reportSuccessToast}</span>
+          </div>
+        )}
+
+        {/* Admin Report Management Panel */}
+        {showAdminModeration && (
+          <AdminReportManagement
+            authToken={typeof window !== 'undefined' ? localStorage.getItem('trustrank_auth_token') : null}
+            onClose={() => setShowAdminModeration(false)}
+          />
+        )}
 
         {/* Search & Filter Header Card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
@@ -329,38 +363,70 @@ export default function CouponsOffersDashboard({
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Coupon Code</span>
                           <span className="font-mono font-bold text-slate-900 text-xs tracking-wider">{offer.coupon_code}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(offer.id, offer.coupon_code)}
-                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-xs"
-                        >
-                          {copiedId === offer.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Copy Code</span>
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyCode(offer.id, offer.coupon_code)}
+                            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-xs"
+                          >
+                            {copiedId === offer.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy Code</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportingCoupon(offer)}
+                            className="p-1.5 rounded-lg border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
+                            title="Report coupon issue (not working, expired, etc.)"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="mt-2.5 text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 flex items-center space-x-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Direct markdown: no coupon code needed at checkout.</span>
+                      <div className="mt-2.5 flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                        <div className="flex items-center space-x-1.5 text-[11px] text-slate-500">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Direct markdown: no coupon code needed.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReportingCoupon(offer)}
+                          className="text-[10px] text-slate-400 hover:text-rose-600 font-bold transition flex items-center space-x-0.5 ml-2"
+                          title="Report offer issue"
+                        >
+                          <Flag className="w-3 h-3" />
+                          <span>Report</span>
+                        </button>
                       </div>
                     )}
                   </div>
 
                   {/* Card Footer: Expiry & Action */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-400 flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{offer.expiry_date || 'Limited time deal'}</span>
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[11px] text-slate-400 flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{offer.expiry_date || 'Limited time deal'}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReportingCoupon(offer)}
+                        className="text-[10px] text-slate-400 hover:text-rose-600 font-semibold transition flex items-center space-x-0.5"
+                        title="Report this offer"
+                      >
+                        <Flag className="w-3 h-3" />
+                        <span>Report</span>
+                      </button>
+                    </div>
 
                     {offer.product_url ? (
                       <a
@@ -406,7 +472,20 @@ export default function CouponsOffersDashboard({
             </button>
           </div>
         )}
+
+        {/* Coupon Report Modal */}
+        {reportingCoupon && (
+          <CouponReportModal
+            coupon={reportingCoupon}
+            onClose={() => setReportingCoupon(null)}
+            onSuccess={(msg) => {
+              setReportSuccessToast(msg);
+              setTimeout(() => setReportSuccessToast(''), 5000);
+            }}
+          />
+        )}
       </div>
     </div>
   );
 }
+

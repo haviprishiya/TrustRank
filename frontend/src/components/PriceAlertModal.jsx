@@ -17,6 +17,12 @@ export default function PriceAlertModal({
   const defaultTarget = currentPrice > 0 ? Math.round(currentPrice * 0.90) : '';
   const [targetPrice, setTargetPrice] = useState(defaultTarget);
   const [emailNotify, setEmailNotify] = useState(true);
+  const [userEmail, setUserEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('trustrank_user_email') || '';
+    }
+    return '';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -45,6 +51,14 @@ export default function PriceAlertModal({
       return;
     }
 
+    if (emailNotify && userEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userEmail.trim())) {
+        setError('Please enter a valid email address (e.g. name@example.com).');
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError('');
     try {
@@ -58,10 +72,14 @@ export default function PriceAlertModal({
         currency: currency,
         image_url: product.image_url || (product.image_candidates ? product.image_candidates[0] : null),
         product_url: product.product_url || null,
-        email_notify: emailNotify
+        email_notify: emailNotify,
+        user_email: emailNotify && userEmail.trim() ? userEmail.trim() : null
       };
 
       const result = await createPriceAlert(token, payload);
+      if (emailNotify && userEmail.trim() && typeof window !== 'undefined') {
+        localStorage.setItem('trustrank_user_email', userEmail.trim());
+      }
       setSuccessMsg(`Price alert activated! We'll notify you when the verified price drops to ₹${numTarget.toLocaleString('en-IN')}.`);
       if (onAlertCreated) onAlertCreated(result);
       setTimeout(() => {
@@ -209,19 +227,44 @@ export default function PriceAlertModal({
             </div>
           )}
 
-          {/* Email Notify Toggle */}
-          <label className="flex items-center space-x-2.5 text-xs text-slate-600 cursor-pointer pt-1">
-            <input
-              type="checkbox"
-              checked={emailNotify}
-              onChange={(e) => setEmailNotify(e.target.checked)}
-              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-            />
-            <span className="flex items-center space-x-1 font-medium">
-              <Mail className="w-3.5 h-3.5 text-slate-400" />
-              <span>Send email notification when verified price drops</span>
-            </span>
-          </label>
+          {/* Email Notify Toggle & Address Input */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <label className="flex items-center space-x-2.5 text-xs text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailNotify}
+                onChange={(e) => setEmailNotify(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+              />
+              <span className="flex items-center space-x-1.5 font-bold">
+                <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Send email notification when verified price drops</span>
+              </span>
+            </label>
+
+            {emailNotify && (
+              <div className="pl-6 space-y-1">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Mail className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    type="email"
+                    value={userEmail}
+                    onChange={(e) => {
+                      setUserEmail(e.target.value);
+                      setError('');
+                    }}
+                    placeholder="Enter your email address"
+                    className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  We'll email you immediately with direct product links when genuine drops are verified.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Form Actions */}
           <div className="flex items-center space-x-3 pt-3 border-t border-slate-100">

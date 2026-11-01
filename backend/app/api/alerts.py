@@ -9,7 +9,9 @@ from app.models.alert_schemas import (
     PriceAlertResponse,
     PriceAlertStatusUpdate,
     PriceAlertListResponse,
-    PriceAlertCheckResult
+    PriceAlertCheckResult,
+    UserEmailUpdate,
+    UserEmailUpdateResponse
 )
 
 router = APIRouter(prefix="/alerts", tags=["Price Drop Alerts"])
@@ -124,3 +126,27 @@ async def trigger_price_check(
     except Exception as e:
         logger.exception("Failed to run price check: %s", e)
         raise HTTPException(status_code=500, detail="Failed to complete price check.")
+
+@router.post("/email", response_model=UserEmailUpdateResponse)
+async def update_alert_email(
+    req: UserEmailUpdate,
+    authorization: Optional[str] = Header(None),
+    x_guest_id: Optional[str] = Header(None)
+):
+    """
+    Updates the email address used for price drop notifications for the current user or guest.
+    """
+    try:
+        _, user_key = get_current_user_or_guest(authorization, x_guest_id)
+        masked = AlertService.update_user_email(user_id=user_key, email=req.email)
+        return UserEmailUpdateResponse(
+            status="success",
+            email_masked=masked or "Configured",
+            message="Alert notification email updated successfully."
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.exception("Failed to update alert email: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to update notification email.")
+

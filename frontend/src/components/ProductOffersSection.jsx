@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Tag, Check, Copy, ExternalLink, ShieldCheck, Clock, AlertCircle } from 'lucide-react';
+import { Tag, Check, Copy, ExternalLink, ShieldCheck, Clock, AlertCircle, Flag } from 'lucide-react';
+import CouponReportModal from './CouponReportModal';
 
 export default function ProductOffersSection({ product, defaultExpanded = false }) {
   if (!product) return null;
 
   const [copiedCode, setCopiedCode] = useState(null);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [reportingCoupon, setReportingCoupon] = useState(null);
+  const [reportSuccessToast, setReportSuccessToast] = useState('');
 
   const currency = product.currency || 'INR';
   const formatMoney = (val) => {
@@ -131,23 +134,41 @@ export default function ProductOffersSection({ product, defaultExpanded = false 
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Coupon:</span>
                     <span className="font-mono font-bold text-slate-900 text-xs tracking-wider">{couponCode}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(couponCode)}
-                    className="flex items-center space-x-1 px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] transition shadow-xs"
-                  >
-                    {copiedCode === couponCode ? (
-                      <>
-                        <Check className="w-3 h-3" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Copy Code</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(couponCode)}
+                      className="flex items-center space-x-1 px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] transition shadow-xs"
+                    >
+                      {copiedCode === couponCode ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Code</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportingCoupon({
+                        coupon_id: `prod_${product.product_id || product.id || 'offer'}`,
+                        coupon_code: couponCode,
+                        marketplace: product.marketplace,
+                        title: product.title,
+                        discount_display: discountPercent ? `${discountPercent}% OFF` : undefined,
+                        current_price: currentPrice
+                      })}
+                      className="flex items-center space-x-0.5 px-1.5 py-1 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-[10px] transition"
+                      title="Report coupon issue"
+                    >
+                      <Flag className="w-2.5 h-2.5" />
+                      <span>Report</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-[11px] text-slate-500 bg-white/80 px-2 py-1 rounded border border-slate-100 flex items-center space-x-1">
@@ -162,17 +183,36 @@ export default function ProductOffersSection({ product, defaultExpanded = false 
                   <Clock className="w-3 h-3 text-slate-400" />
                   <span>{expiryDate || 'Limited Period Marketplace Deal'}</span>
                 </span>
-                {product.product_url && (
-                  <a
-                    href={product.product_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-0.5"
-                  >
-                    <span>Claim on {product.marketplace}</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                )}
+                <div className="flex items-center space-x-2">
+                  {couponCode && (
+                    <button
+                      type="button"
+                      onClick={() => setReportingCoupon({
+                        coupon_id: `prod_${product.product_id || product.id || 'offer'}`,
+                        coupon_code: couponCode,
+                        marketplace: product.marketplace,
+                        title: product.title,
+                        discount_display: discountPercent ? `${discountPercent}% OFF` : undefined,
+                        current_price: currentPrice
+                      })}
+                      className="text-[10px] text-slate-400 hover:text-rose-600 font-semibold transition flex items-center space-x-0.5"
+                    >
+                      <Flag className="w-2.5 h-2.5" />
+                      <span>Report</span>
+                    </button>
+                  )}
+                  {product.product_url && (
+                    <a
+                      href={product.product_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-0.5"
+                    >
+                      <span>Claim on {product.marketplace}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -186,6 +226,24 @@ export default function ProductOffersSection({ product, defaultExpanded = false 
             </div>
           )}
         </div>
+      )}
+
+      {reportSuccessToast && (
+        <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] rounded-lg flex items-center space-x-1 font-medium">
+          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span>{reportSuccessToast}</span>
+        </div>
+      )}
+
+      {reportingCoupon && (
+        <CouponReportModal
+          coupon={reportingCoupon}
+          onClose={() => setReportingCoupon(null)}
+          onSuccess={(msg) => {
+            setReportSuccessToast(msg);
+            setTimeout(() => setReportSuccessToast(''), 4000);
+          }}
+        />
       )}
     </div>
   );

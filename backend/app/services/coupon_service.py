@@ -191,10 +191,22 @@ class CouponService:
             extracted = cls.extract_offers_from_product(p)
             offers.extend(extracted)
 
-        # Deduplicate offers by (applicable_product, marketplace)
+        # Exclude offers deactivated by admin moderation
+        try:
+            from app.services.report_service import ReportService
+            disabled_coupons = ReportService.get_disabled_coupon_ids()
+        except Exception:
+            disabled_coupons = set()
+
+        # Deduplicate offers by (applicable_product, marketplace) and exclude disabled
         seen_keys = set()
         deduped_offers: List[CouponOffer] = []
         for off in offers:
+            if off.id in disabled_coupons:
+                continue
+            if off.coupon_code and off.coupon_code.strip().upper() in disabled_coupons:
+                continue
+
             key = f"{off.applicable_product[:40].lower()}_{off.marketplace.lower()}"
             if key not in seen_keys:
                 seen_keys.add(key)
@@ -243,10 +255,21 @@ class CouponService:
                 for p in res:
                     all_offers.extend(cls.extract_offers_from_product(p))
 
-        # Deduplicate
+        # Deduplicate and exclude disabled
+        try:
+            from app.services.report_service import ReportService
+            disabled_coupons = ReportService.get_disabled_coupon_ids()
+        except Exception:
+            disabled_coupons = set()
+
         seen = set()
         deduped: List[CouponOffer] = []
         for o in all_offers:
+            if o.id in disabled_coupons:
+                continue
+            if o.coupon_code and o.coupon_code.strip().upper() in disabled_coupons:
+                continue
+
             key = f"{o.applicable_product[:35].lower()}_{o.marketplace.lower()}"
             if key not in seen:
                 seen.add(key)

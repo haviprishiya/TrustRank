@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in {"true", "1", "yes"}
     SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() in {"true", "1", "yes"}
-    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "welcome@trustrank.ai")
+    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", os.getenv("EMAIL_FROM", "welcome@trustrank.ai"))
     EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "TrustRank Shopping Intelligence")
 
     @field_validator("DEBUG", mode="before")

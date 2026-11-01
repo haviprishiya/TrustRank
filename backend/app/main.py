@@ -11,8 +11,10 @@ from app.api.auth import router as auth_router
 from app.api.coupons import router as coupons_router
 from app.api.history import router as history_router
 from app.api.alerts import router as alerts_router
+from app.api.reports import router as reports_router
 import asyncio
 from app.services.alert_service import AlertService
+from app.services.report_service import ReportService
 
 app = FastAPI(
      
@@ -39,6 +41,7 @@ app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(coupons_router, prefix=settings.API_V1_PREFIX)
 app.include_router(history_router, prefix=settings.API_V1_PREFIX)
 app.include_router(alerts_router, prefix=settings.API_V1_PREFIX)
+app.include_router(reports_router, prefix=settings.API_V1_PREFIX)
 
 # Periodic Price Drop Monitor
 async def _periodic_price_check_worker():
@@ -54,6 +57,7 @@ async def _periodic_price_check_worker():
 @app.on_event("startup")
 async def start_periodic_price_monitor():
     AlertService.initialize_db()
+    ReportService.initialize_db()
     asyncio.create_task(_periodic_price_check_worker())
 
 # Static Files & SPA Routing

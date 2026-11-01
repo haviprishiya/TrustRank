@@ -25,7 +25,8 @@ import {
   ShoppingBag,
   Star,
   ChevronRight,
-  Filter
+  Filter,
+  Mail
 } from 'lucide-react';
 import {
   fetchProfileDashboard,
@@ -36,7 +37,8 @@ import {
   fetchPriceAlerts,
   updateAlertStatus,
   deletePriceAlert,
-  checkPriceAlertsNow
+  checkPriceAlertsNow,
+  updateAlertEmail
 } from '../services/api';
 
 export default function UserProfileDashboard({
@@ -63,6 +65,15 @@ export default function UserProfileDashboard({
   const [alertsData, setAlertsData] = useState({ alerts: [], unread_notifications: [], total_alerts: 0, active_alerts: 0, target_reached_alerts: 0 });
   const [isCheckingAlerts, setIsCheckingAlerts] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
+  const [alertEmail, setAlertEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('trustrank_user_email') || currentUser?.email || '';
+    }
+    return '';
+  });
+  const [isUpdatingAlertEmail, setIsUpdatingAlertEmail] = useState(false);
+  const [alertEmailMsg, setAlertEmailMsg] = useState('');
+  const [alertEmailError, setAlertEmailError] = useState('');
 
   // Load dashboard data
   const loadDashboard = async (showLoadingSpinner = true) => {
@@ -128,6 +139,35 @@ export default function UserProfileDashboard({
       console.error('Failed to run price check:', err);
     } finally {
       setIsCheckingAlerts(false);
+    }
+  };
+
+  // Handle Update Alert Notification Email
+  const handleUpdateAlertEmail = async (e) => {
+    if (e) e.preventDefault();
+    if (!alertEmail || !alertEmail.trim()) {
+      setAlertEmailError('Please enter a valid email address.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(alertEmail.trim())) {
+      setAlertEmailError('Please enter a valid email address (e.g. name@example.com).');
+      return;
+    }
+    setIsUpdatingAlertEmail(true);
+    setAlertEmailError('');
+    try {
+      const res = await updateAlertEmail(authToken, alertEmail.trim());
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trustrank_user_email', alertEmail.trim());
+      }
+      setAlertEmailMsg(`Email updated to ${res.email_masked}. Price drop alerts will notify this address.`);
+      setTimeout(() => setAlertEmailMsg(''), 4000);
+      await loadDashboard(false);
+    } catch (err) {
+      setAlertEmailError(err.message || 'Failed to update alert notification email.');
+    } finally {
+      setIsUpdatingAlertEmail(false);
     }
   };
 
@@ -713,6 +753,63 @@ export default function UserProfileDashboard({
               </div>
             </div>
 
+            {/* Email Notification Settings Banner */}
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">Alert Notification Email</span>
+                    {alertsData.alerts.some((a) => a.user_email_masked) && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
+                        Active: {alertsData.alerts.find((a) => a.user_email_masked)?.user_email_masked}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Automatic email dispatch when genuine marketplace price reaches or drops below your target.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleUpdateAlertEmail} className="flex items-center space-x-2 shrink-0">
+                <input
+                  type="email"
+                  value={alertEmail}
+                  onChange={(e) => {
+                    setAlertEmail(e.target.value);
+                    setAlertEmailError('');
+                  }}
+                  placeholder="Enter alert email address"
+                  className="px-3 py-1.5 text-xs rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium w-48 sm:w-56"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={isUpdatingAlertEmail}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-1 shadow-xs"
+                >
+                  <span>{isUpdatingAlertEmail ? 'Saving...' : 'Save Email'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Email feedback messages */}
+            {alertEmailMsg && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center space-x-2 font-medium">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{alertEmailMsg}</span>
+              </div>
+            )}
+            {alertEmailError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2 font-medium">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{alertEmailError}</span>
+              </div>
+            )}
+
             {alertsData.alerts.length === 0 ? (
               <div className="py-10 text-center max-w-sm mx-auto space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto">
@@ -768,7 +865,7 @@ export default function UserProfileDashboard({
                             }`}
                           >
                             <span>
-                              {isReached ? '🎉 Target Reached' : isUnavailable ? '⚠️ Price Unavailable' : isDisabled ? 'Disabled' : 'Active'}
+                              {isReached ? '🎉 Target Reached' : isUnavailable ? '⚠️ Price Unavailable' : isDisabled ? 'Disabled' : 'Alert Active'}
                             </span>
                           </span>
                         </div>
@@ -800,6 +897,56 @@ export default function UserProfileDashboard({
                                 : `₹${alt.price_difference.toLocaleString('en-IN')} drop needed (${alt.percentage_drop_needed}%)`}
                             </span>
                           </div>
+                        </div>
+
+                        {/* Email Notification Status Badge */}
+                        <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1 text-xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 font-medium flex items-center space-x-1">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              <span>Email Notification:</span>
+                            </span>
+                            {!alt.email_notify ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+                                Email Off
+                              </span>
+                            ) : alt.email_status === 'sent' ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Email Sent</span>
+                              </span>
+                            ) : alt.email_status === 'failed' ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                                <AlertCircle className="w-3 h-3 text-rose-600" />
+                                <span>Email Delivery Failed</span>
+                              </span>
+                            ) : alt.email_status === 'not_configured' ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                <span>Email Not Configured</span>
+                              </span>
+                            ) : alt.email_status === 'disabled' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+                                Disabled
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                                <span>Waiting for Drop</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {alt.user_email_masked && (
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                              <span>Recipient:</span>
+                              <span className="font-mono text-slate-600 font-medium">{alt.user_email_masked}</span>
+                            </div>
+                          )}
+
+                          {alt.email_status === 'failed' && alt.email_error && (
+                            <p className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200/60 p-1.5 rounded font-medium mt-1 leading-tight">
+                              {alt.email_error}
+                            </p>
+                          )}
                         </div>
 
                         {/* Notification message if triggered */}

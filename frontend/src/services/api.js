@@ -384,3 +384,73 @@ export async function checkPriceAlertsNow(token) {
   }
   return res.json();
 }
+
+export async function updateAlertEmail(token, email) {
+  const res = await fetch(`${API_PREFIX}/alerts/email`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ email })
+  });
+  if (!res.ok) {
+    throw new Error(await getApiError(res, 'Failed to update alert email'));
+  }
+  return res.json();
+}
+
+// ==========================================
+// Reports & Moderation APIs
+// ==========================================
+
+export async function submitCouponReport(token, payload) {
+  const res = await fetch(`${API_PREFIX}/reports/coupons`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    throw new Error(await getApiError(res, 'Failed to submit coupon report'));
+  }
+  return res.json();
+}
+
+export async function fetchAdminReports(token, filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.report_type && filters.report_type !== 'all') params.append('report_type', filters.report_type);
+  if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+  if (filters.limit) params.append('limit', String(filters.limit));
+
+  const url = `${API_PREFIX}/reports${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(token)
+  });
+  if (!res.ok) {
+    throw new Error(await getApiError(res, 'Failed to fetch reports'));
+  }
+  return res.json();
+}
+
+export async function updateAdminReportStatus(token, reportId, payload) {
+  const res = await fetch(`${API_PREFIX}/reports/${encodeURIComponent(reportId)}/status`, {
+    method: 'PUT',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    throw new Error(await getApiError(res, 'Failed to update report status'));
+  }
+  return res.json();
+}
+
+export async function fetchDisabledCoupons() {
+  const res = await fetch(`${API_PREFIX}/reports/disabled-coupons`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) {
+    return [];
+  }
+  return res.json();
+}
+
+

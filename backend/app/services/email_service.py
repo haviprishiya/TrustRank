@@ -291,55 +291,134 @@ https://trustrank.ai
         product_title: str,
         target_price: float,
         current_price: float,
-        marketplace: str,
-        product_url: Optional[str]
+        marketplace: str = "Amazon India",
+        product_url: Optional[str] = None,
+        previous_price: Optional[float] = None,
+        image_url: Optional[str] = None
     ) -> Dict[str, Any]:
+        """
+        Sends an authentic HTML price drop alert email via configured SMTP.
+        Does not fabricate success when SMTP is unconfigured or fails.
+        """
         display_name = recipient_name.strip() if recipient_name and recipient_name.strip() else recipient_email.split('@')[0]
-        savings = max(0.0, target_price - current_price)
-        subject = f"🔔 Price Drop Alert: {product_title[:40]} is now ₹{current_price:,.0f} on {marketplace}!"
+        ref_price = previous_price if previous_price and previous_price > current_price else target_price
+        actual_savings = max(0.0, ref_price - current_price)
+        subject = f"TrustRank Price Alert: Your Target Price Has Been Reached!"
 
         text_content = f"""Hello {display_name},
 
-Great news! The product you've been tracking on TrustRank has dropped below your target price.
+Great news! The product you have been tracking on TrustRank has reached or dropped below your target price.
 
+Product Details:
+---------------------------------------------
 Product: {product_title}
 Marketplace: {marketplace}
+Previous / Reference Price: ₹{ref_price:,.2f}
 Your Target Price: ₹{target_price:,.2f}
-New Verified Price: ₹{current_price:,.2f}
+Current Verified Price: ₹{current_price:,.2f}
+Your Actual Savings: ₹{actual_savings:,.2f}
 
-Link to Product: {product_url or 'https://trustrank.ai'}
+View & Buy on {marketplace}:
+{product_url or 'https://trustrank.ai'}
 
-This verified price was detected by TrustRank's periodic marketplace monitor.
+This verified price was confirmed by TrustRank's automated marketplace monitoring engine.
+No fake discounts or outdated prices.
 
-Happy saving!
+Happy shopping!
 The TrustRank Team
+https://trustrank.ai
 """
 
+        prev_price_html = f"""
+          <div style="text-align: center; padding: 10px; background: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold;">Previous Price</div>
+            <div style="font-size: 14px; color: #94a3b8; text-decoration: line-through; margin-top: 4px;">₹{ref_price:,.0f}</div>
+          </div>
+        """ if ref_price > current_price else ""
+
+        savings_badge_html = f"""
+          <div style="display: inline-block; background: #ecfdf5; border: 1px solid #10b981; color: #047857; font-weight: bold; font-size: 13px; padding: 6px 14px; border-radius: 20px; margin-top: 12px;">
+            🎉 You save ₹{actual_savings:,.0f}!
+          </div>
+        """ if actual_savings > 0 else ""
+
         html_content = f"""<!DOCTYPE html>
-<html>
-<body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0;">
-    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 24px; border-radius: 12px; color: #fff; text-align: center;">
-      <h1 style="margin: 0; font-size: 22px;">🔔 Price Drop Detected!</h1>
-      <p style="margin: 6px 0 0; opacity: 0.9;">Your target price has been reached</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{subject}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #0f172a;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+    
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; text-align: center; border-bottom: 4px solid #10b981;">
+      <div style="display: inline-block; background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 9999px; margin-bottom: 8px;">
+        TrustRank Price Alert
+      </div>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
+        🔔 Target Price Reached!
+      </h1>
+      <p style="margin: 6px 0 0; color: #94a3b8; font-size: 13px;">
+        Verified price drop confirmed on {marketplace}
+      </p>
     </div>
-    <div style="padding: 24px 0;">
-      <h3 style="color: #0f172a; margin-top: 0;">{product_title}</h3>
-      <p style="color: #64748b; font-size: 13px;">Marketplace: <strong>{marketplace}</strong></p>
-      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 16px; margin: 16px 0;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-          <span style="color: #047857; font-size: 14px;">Your Target:</span>
-          <strong style="color: #047857; font-size: 15px;">₹{target_price:,.2f}</strong>
+
+    <!-- Body -->
+    <div style="padding: 28px 24px;">
+      <p style="margin: 0 0 16px; font-size: 15px; color: #334155;">
+        Hello <strong>{display_name}</strong>,
+      </p>
+      <p style="margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+        Great news! The product you've been tracking has reached or fallen below your desired price threshold.
+      </p>
+
+      <!-- Product Card -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+        <div style="display: inline-block; background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; margin-bottom: 8px;">
+          {marketplace}
         </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: #065f46; font-size: 14px;">Current Verified Price:</span>
-          <strong style="color: #065f46; font-size: 18px;">₹{current_price:,.2f}</strong>
+        <h2 style="margin: 0 0 16px; font-size: 16px; font-weight: 700; color: #0f172a; line-height: 1.4;">
+          {product_title}
+        </h2>
+
+        <!-- Price Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 16px 0;">
+          {prev_price_html}
+          <div style="text-align: center; padding: 10px; background: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold;">Your Target</div>
+            <div style="font-size: 15px; color: #4f46e5; font-weight: bold; margin-top: 4px;">₹{target_price:,.0f}</div>
+          </div>
+          <div style="text-align: center; padding: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px;">
+            <div style="font-size: 11px; color: #065f46; text-transform: uppercase; font-weight: bold;">Current Verified</div>
+            <div style="font-size: 18px; color: #047857; font-weight: 900; margin-top: 2px;">₹{current_price:,.0f}</div>
+          </div>
+        </div>
+
+        <div style="text-align: center;">
+          {savings_badge_html}
         </div>
       </div>
-      {f'<a href="{product_url}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; margin-top: 12px;">View on {marketplace}</a>' if product_url else ''}
+
+      <!-- Action Button -->
+      {f'''
+      <div style="text-align: center; margin: 28px 0 16px;">
+        <a href="{product_url}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+          Claim Deal on {marketplace} &rarr;
+        </a>
+      </div>
+      ''' if product_url else ''}
+
+      <p style="margin: 20px 0 0; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5;">
+        This alert was sent automatically because the price was verified by TrustRank's background price monitor.
+      </p>
     </div>
-    <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
-      TrustRank Shopping Intelligence • Periodic Price Monitor
+
+    <!-- Footer -->
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+      TrustRank Shopping Intelligence &bull; Real-Time Verified Marketplace Analytics<br>
+      To manage your alert thresholds, visit your TrustRank Customer Profile dashboard.
     </div>
   </div>
 </body>
@@ -354,8 +433,16 @@ The TrustRank Team
         from_name = settings.EMAILS_FROM_NAME
 
         if not smtp_host:
-            logger.info("SMTP_HOST not configured. Simulating price drop notification for %s", recipient_email)
-            return {"status": "simulated", "recipient": recipient_email, "subject": subject}
+            logger.warning(
+                "SMTP credentials not configured (SMTP_HOST is empty). Price drop email skipped for %s. Set SMTP_HOST in .env to enable live email delivery.",
+                recipient_email
+            )
+            return {
+                "status": "not_configured",
+                "recipient": recipient_email,
+                "subject": subject,
+                "message": "SMTP credentials not configured in backend environment."
+            }
 
         try:
             msg = MIMEMultipart("alternative")
@@ -379,11 +466,11 @@ The TrustRank Team
 
             server.sendmail(from_email, [recipient_email], msg.as_string())
             server.quit()
-            logger.info("Price drop alert email sent to %s", recipient_email)
-            return {"status": "sent", "recipient": recipient_email, "subject": subject}
+            logger.info("Price drop alert email successfully sent to %s via SMTP (%s:%d)", recipient_email, smtp_host, smtp_port)
+            return {"status": "sent", "recipient": recipient_email, "subject": subject, "message": f"Price drop alert sent to {recipient_email}"}
         except Exception as e:
-            logger.error("Failed to send price drop alert email: %s", str(e))
-            return {"status": "failed", "error": str(e)}
+            logger.error("Failed to send price drop alert email to %s via SMTP (%s:%d): %s", recipient_email, smtp_host, smtp_port, str(e))
+            return {"status": "failed", "recipient": recipient_email, "error": str(e), "message": f"SMTP delivery failed: {str(e)}"}
 
     @classmethod
     async def send_price_drop_email(
@@ -393,8 +480,10 @@ The TrustRank Team
         product_title: str,
         target_price: float,
         current_price: float,
-        marketplace: str,
-        product_url: Optional[str]
+        marketplace: str = "Amazon India",
+        product_url: Optional[str] = None,
+        previous_price: Optional[float] = None,
+        image_url: Optional[str] = None
     ) -> Dict[str, Any]:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -406,5 +495,7 @@ The TrustRank Team
             target_price,
             current_price,
             marketplace,
-            product_url
+            product_url,
+            previous_price,
+            image_url
         )

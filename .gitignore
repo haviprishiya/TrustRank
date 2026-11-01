@@ -33,3 +33,10 @@ venv/
 # Operating-system and diagnostic files
 .DS_Store
 *.log
+
+# Temporary archives and extracted update folders
+update/
+update.zip
+*.zip
+*.tar.gz
+
